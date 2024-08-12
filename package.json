@@ -5,9 +5,9 @@
   "license": "MIT",
   "author": "Wesley Ormsby",
   "repository": "github:BrettOrmsby/type-stack",
-  "main": "/dist/cli.js",
+  "main": "./dist/cli.js",
   "bin": {
-    "rule": "/dist/cli.js"
+    "rule": "./dist/cli.js"
   },
   "scripts": {
     "dev": "npx tsc --watch",
