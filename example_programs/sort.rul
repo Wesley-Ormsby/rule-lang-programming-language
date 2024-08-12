@@ -1,0 +1,6 @@
+// Sort the numbers in the record from least to greatest and print them
+begin >> [ 1 4 1 -8 4 2 7 ]
+(num num) as (x y) if x > y -> [ y x ]
+end => [
+    any as x !> print(x)
+]

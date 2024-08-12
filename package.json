@@ -1,0 +1,31 @@
+{
+  "name": "rule-lang-programming-language",
+  "version": "1.0.0",
+  "description": "An esoteric matching language with bizarre control flow",
+  "license": "MIT",
+  "author": "Wesley Ormsby",
+  "repository": "github:BrettOrmsby/type-stack",
+  "main": "/dist/cli.js",
+  "bin": {
+    "rule": "/dist/cli.js"
+  },
+  "scripts": {
+    "dev": "npx tsc --watch",
+    "test": "node dist/tests.js",
+    "lint": "eslint --ext .js,.ts .",
+    "format": "prettier --ignore-path .gitignore --write \"**/*.+(js|ts|json)\"",
+    "build": "tsc"
+  },
+  "type": "module",
+  "dependencies": {
+    "typescript": "^5.3.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.1.0",
+    "@typescript-eslint/eslint-plugin": "^6.19.1",
+    "@typescript-eslint/parser": "^6.19.1",
+    "eslint": "^8.56.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.2.4"
+  }
+}

@@ -1,0 +1,12 @@
+begin 
+    >> "racecar"
+    >> Word_Before_This
+str as word Word_Before_This
+    !> split_push(word "")
+    !> reverse()
+    => [
+        str str as (part1 part2) -> join(part1 part2)
+    ]
+    >> word
+str str as (reversed word) if reversed = word !> print(join(word " is a palindrome!"))
+str str as (reversed word) if reversed != word !> print(join(word " is not a palindrome!"))

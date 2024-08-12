@@ -1,0 +1,9 @@
+begin >> [ Loop 1 ]
+Loop num as i if i <= 100 -> [ i Loop add(i 1)]
+Loop num !> nil # remove the term 'Loop' and number '101' from the record
+
+# Prints the FizzBuzz
+num as x if mod(x 15) = 0 !>  print("FizzBuzz")
+num as x if mod(x 3) = 0 !> print("Fizz")
+num as x if mod(x 5) = 0 !> print("Buzz")
+num as x !> print(x)
