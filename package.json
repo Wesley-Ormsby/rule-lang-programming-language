@@ -4,7 +4,7 @@
   "description": "An esoteric matching language with bizarre control flow",
   "license": "MIT",
   "author": "Wesley Ormsby",
-  "repository": "github:BrettOrmsby/type-stack",
+  "repository": "github:Wesley-Ormsby/rule-lang-programming-language",
   "main": "./dist/cli.js",
   "bin": {
     "rule": "./dist/cli.js"
