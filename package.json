@@ -1,6 +1,6 @@
 {
   "name": "rule-lang-programming-language",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "An esoteric matching language with bizarre control flow",
   "license": "MIT",
   "author": "Wesley Ormsby",
