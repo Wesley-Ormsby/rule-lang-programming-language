@@ -14,6 +14,18 @@ num !> [] # Remove the last number from the record
 ```
 > [!NOTE]
 > The code examples are highlighted in Python, so they might not be entirely accurate, but they are easier to understand.
+## Instillation for CLI
+
+```
+npm i rule-lang-programming-language
+```
+## Running Files via CLI
+
+```
+# .rul is the file extention for a RuleLang program
+rule my_file.rul
+```
+
 
 ## The Record
 
