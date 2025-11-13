@@ -52,8 +52,8 @@ export type TT =
 // Token interface
 export interface Token {
   type: TT;
-  char_start: number;
-  char_end: number;
-  line_start: number;
+  charStart: number;
+  charEnd: number;
+  lineStart: number;
   lexeme: string;
 }

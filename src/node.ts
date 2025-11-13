@@ -1,139 +1,90 @@
 import { type TT, type Token } from "./token.js";
 
-export type Node = Rule | Scope | ValueOrFunction | PatternValue | Expression;
+export type Node = RuleNode | ScopeNode | ValueOrFunctionNode | PatternNode | ExprNode;
+export type ScopeNode = ValueScopeNode | RuleScopeNode;
+export type ValueOrFunctionNode = ValueNode | FunctionNode | VariableNode;
+export type ValueType = "STR" | "NUM" | "BOOL" | "NIL" | "TERM" | "ANY";
+export type PatternNode =
+  | ValueNode
+  | PatternTypeNode
+  | PatternOrNode
+  | PatternNotNode
+  | PatternGroupNode;
+export type ExprNode =
+  | ValueOrFunctionNode
+  | BinaryExprNode
+  | NotExprNode;
 
 /* RULES + SCOPES */
-export class Rule {
-  public pattern: PatternValue[];
-  // Scopes have match type as well!
-  public expression: Expression | null;
-  public scopes: Scope[];
-public variables: Array<string|null>;
-  constructor(
-    pattern: PatternValue[],
-    expression: Expression | null,
-    scopes: Scope[],
-    variables: Array<string|null>
-  ) {
-    this.pattern = pattern;
-    this.expression = expression;
-    this.scopes = scopes;
-    this.variables = variables;
-  }
+export interface RuleNode {
+  kind: "Rule";
+  pattern: PatternGroupNode;
+  expression: ExprNode | null;
+  scopes: ScopeNode[];
+  variables: Array<string | null>;
 }
-export type Scope = ValueScope | RuleScope;
-export class ValueScope {
-  public operator: TT;
-  public scope: ValueOrFunction[];
-  constructor(operatorToken: Token, scope: ValueOrFunction[]) {
-    this.operator = operatorToken.type;
-    this.scope = scope;
-  }
+export interface ValueScopeNode {
+  kind: "ValueScope";
+  operator: TT;
+  scope: ValueOrFunctionNode[];
 }
-export class RuleScope {
-  public operator: TT;
-  public customs: Rule[] | null;
-  public begin: Scope[] | null;
-  public end: Scope[] | null;
-  constructor(
-    begin: Scope[] | null,
-    customs: Rule[] | null,
-    end: Scope[] | null
-  ) {
-    this.customs = customs;
-    this.begin = begin;
-    this.end = end;
-  }
+export interface RuleScopeNode {
+  kind: "RuleScope";
+  customs: RuleNode[] | null;
+  begin: ScopeNode[] | null;
+  end: ScopeNode[] | null;
 }
+
 /* VALUES */
-export type ValueOrFunction = Value | Function | Variable;
-
-export type ValueType = "STR" | "NUM" | "BOOL" | "NIL" | "TERM" | "ANY";
-export class Value {
-  public value: string;
-  public push: boolean;
-  public token: Token;
-  public type: ValueType;
-
-  constructor(token: Token, type: ValueType, push: boolean) {
-    this.token = token;
-    this.value = token.lexeme;
-    this.type = type;
-    this.push = push;
-  }
+export interface ValueNode {
+  kind: "Value";
+  value: string;
+  push: boolean;
+  token: Token;
+  type: ValueType;
 }
-export class Variable {
-  public name: string;
-  public push: boolean;
-  public token: Token;
-
-  constructor(token: Token, push: boolean) {
-    this.token = token;
-    this.name = token.lexeme;
-    this.push = push;
-  }
+export interface VariableNode {
+  kind: "Variable";
+   name: string;
+   push: boolean;
+   token: Token;
 }
-export class Function {
-  public name: string;
-  public parms: ValueOrFunction[];
-  public push: boolean;
-  public token: Token;
-  constructor(token: Token, parms: ValueOrFunction[], push = false) {
-    this.token = token;
-    this.name = token.lexeme;
-    this.parms = parms;
-    this.push = push;
-  }
+export interface FunctionNode {
+  kind: "Function";
+   name: string;
+   params: ValueOrFunctionNode[];
+   push: boolean;
+   token: Token;
 }
 
 /* PATTERN */
-export type PatternValue =
-  | Value
-  | PatternValueType
-  | PatternValueOr
-  | PatternValueNot
-  | PatternValue[];
+export interface PatternGroupNode {
+  kind:"PatternGroup"
+  patterns:PatternNode[]
+}
+export interface PatternTypeNode {
+  kind: "PatternType";
+  type: string;
+}
+export interface PatternOrNode {
+  kind: "PatternOr";
+   left: PatternNode;
+   right: PatternNode;
+}
+export interface PatternNotNode {
+  kind: "PatternNot";
+   right: PatternNode;
+}
 
-export class PatternValueType {
-  public type: string;
-  constructor(token: Token) {
-    this.type = token.type;
-  }
-}
-export class PatternValueOr {
-  public left: PatternValue;
-  public right: PatternValue;
-  constructor(left: PatternValue, right: PatternValue) {
-    this.left = left;
-    this.right = right;
-  }
-}
-export class PatternValueNot {
-  public right: PatternValue;
-  constructor(right: PatternValue) {
-    this.right = right;
-  }
-}
 /* EXPRESSIONS */
-export type Expression =
-  | ValueOrFunction
-  | BinaryExpression
-  | UnaryNotExpression;
-export class BinaryExpression {
-  public left: Expression;
-  public operator: TT;
-  public right: Expression;
-  public token: Token;
-  constructor(token: Token, left: Expression, right: Expression) {
-    this.operator = token.type;
-    this.token = token
-    this.left = left;
-    this.right = right;
-  }
+export interface BinaryExprNode {
+  kind: "BinaryExpr"
+   left: ExprNode;
+   operator: TT;
+   right: ExprNode;
+   token: Token;
 }
-export class UnaryNotExpression {
-  public right: Expression;
-  constructor(right: Expression) {
-    this.right = right;
-  }
+export interface NotExprNode {
+  kind: "NotExpr"
+  right: ExprNode;
 }

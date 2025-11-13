@@ -219,7 +219,7 @@ All of the value scope matching operators (`>>`, `<<`, `!>`, and `=>`) evaluate 
 begin << [ 3 4 ]
 end << [ 1 2 ]
 # Values pushed as the entire scope at once: [ 1 2 3 4 ]
-# Values pushed separately: [ 2 1 3 4 ]
+# Values pushed separately: [ 2 1 4 3 ]
 ```
 See how the `end` rule pushes the `1` to the start of the **record**, then the `2`. This seems complicated and unnecessary because it is. So RuleLang doesn't work this way.
 
@@ -676,7 +676,7 @@ Conditions can also include variables, making the syntax more concise.
 ```py
 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 -> "Number Between 1 and 10"
 # With a condition:
-num as x if x >= 1 && x <= 10 ->  "Number Between 1 and 10"
+num as x if x >= 1 & x <= 10 ->  "Number Between 1 and 10"
 ```
 The following program uses conditions to sort a record of numbers from least to greatest.
 ```py
@@ -758,17 +758,51 @@ num as x if push(x) | true !> []
 - `split_push(str:str, delimiter:str) -> nil [unsafe]`: Splits `str` by `delimiter` and appends the resulting substrings as new values to the record. Returns `nil`.
 - `reverse() -> nil [unsafe]`: Reverses the order of values in the record and returns `nil`.
 
-
-
-
-## Future Additions to RuleLang
-- More functions
-- `input` function
-- Modules
-- `else` pattern that matches whenever the previous pattern fails to match
-```py
-begin >> [ 1 2 3 ]
-num as x if mod(x 2) = 0 
- !> print("Even")
-    else !> print("Odd")
-```
+## Error Codes
+### Lexing (Scanning) errors
+- `E100001`: Unexpected token
+- `E100002`: Unterminated string
+### Parsing Errors
+- `E200001`: Unexpected token
+- `E200002`: Expected \`[\` to start the rule scope
+- `E200003`: Expected \`]\` to end the rule scope
+- `E200004`: Expected \`]\` to end the value scope
+- `E200005`: Variable \`myVariableName\` in not defined in the scope's pattern
+- `E200006`: Expected value or scope after match operator \`myMatchOperator\``
+- `E200007`: 
+   - Replacing match operator (\`->\`) is invalid for the \`begin\` pattern
+   - Replacing match operator (\`->\`) is invalid for the \`end\` pattern
+- `E200008`: 
+   - Expected match operator after \`begin\` pattern
+   - Expected match operator after \`end\` pattern
+- `E200009`: Expected \`)\` to end the function call
+- `E200010`: Expected value after \`!\` in the value scope
+- `E200011`: Expected expression after \`if\`
+- `E200012`: Expected rule operator after the pattern
+- `E200013`: Expected pattern value after \`!\` in the pattern, not a group
+- `E200014`: Expected pattern value in the pattern group
+- `E200015`: Expected \`)\` to end the pattern group
+- `E200016`: Expected pattern value after \`!\` in pattern
+- `E200017`: The \`|\` pattern operator cannot be combined with \`as\` within the same group
+- `E200018`: Expected pattern value(s) to the right of the \`|\` pattern operator
+- `E200019`: The left side of the \`|\` pattern operator must have the same number of pattern values as right side
+- `E200020`: Cannot use \`as\` in the middle of the \`|\` condition 
+- `E200021`: Expected variable name(s) in \`as\` group
+- `E200022`: Expected \`)\` to end \`as\` group
+- `E200023`: Expected variable name or group of variable names after \`as\`
+- `E200024`: Variable \`myVariableName\` is already declared in the pattern
+- `E200025`: Too many variables for the number of pattern values
+- `E200026`: Expected value after \`!\` operator
+- `E200027`: Expected expression after \`(\`
+- `E200028`: Expected \`)\` to end expression
+- `E200029`: Expected expression after \`myExpressionOperator\` expression operator
+### Runtime Errors
+- `E300001`: Left operand of \`myExpressionOperator\` operator must be a number
+- `E300002`: Right operand of \`myExpressionOperator\` operator must be a number
+- `E300003`: Function \`myCalledFunction\` does not exist
+- `E300004`: Function \`myCalledFunction\` is not a safe function and cannot be used in expressions or replacing value scopes (\`-> [ ... ]\`)
+- `E300005`: Invalid number of parameters, function \`myCalledFunction\` must have x parameters
+- `E300006`: Parameter x of \`myCalledFunction\` function must be a \`parameterType\` type
+### Standard Library Errors
+- `E400001`: Parameter for \`myCalledFunction\` function must be an integer
+- `E400002`: \`x\` is out of range for \`myCalledFunction\` function, the record has y values

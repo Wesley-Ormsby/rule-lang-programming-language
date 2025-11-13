@@ -1,6 +1,30 @@
+import { ErrorReporter } from "./error.js";
 import { type TT, type Token } from "./token.js";
-import { Error } from "./error.js";
-import { Console } from "console";
+
+// These tokens are all single character and don't prepend other tokens (like `<` is used in `<=`)
+const singleCharTokens: Record<string, TT> = {
+  "[": "LEFT_SQUARE",
+  "]": "RIGHT_SQUARE",
+  "(": "LEFT_PREN",
+  ")": "RIGHT_PREN",
+  "|": "OR",
+  "&": "AND",
+};
+
+const KEYWORDS: Record<string, TT> = {
+  true: "BOOL",
+  false: "BOOL",
+  nil: "NIL",
+  num: "NUM_TYPE",
+  str: "STR_TYPE",
+  bool: "BOOL_TYPE",
+  term: "TERM_TYPE",
+  any: "ANY_TYPE",
+  begin: "BEGIN",
+  end: "END",
+  as: "AS",
+  if: "IF",
+};
 
 export class Lexer {
   private charStart: number;
@@ -8,11 +32,13 @@ export class Lexer {
   private lineStart: number;
   private lineEnd: number;
   private lexeme: string;
-  private source: string;
+  private readonly source: string;
   private tokenList: Token[];
   private errorToken: Token | false;
+  private pos: number;
+  private errReporter: ErrorReporter
 
-  constructor(source: string) {
+  constructor(source: string, reporter: ErrorReporter) {
     this.source = source;
     this.charStart = 1;
     this.charEnd = 0;
@@ -21,7 +47,8 @@ export class Lexer {
     this.lexeme = "";
     this.tokenList = [];
     this.errorToken = false;
-    this.errorToken;
+    this.pos = 0;
+    this.errReporter = reporter
     this.lexSource();
   }
 
@@ -32,24 +59,24 @@ export class Lexer {
 
   // Lex source into a token list
   private lexSource() {
-    while (this.source.length) {
+    while (this.charsToScan()) {
       this.lex();
-      if (Error.hasError()) {
-        return;
-      }
     }
     // If there was an invalid token at the end of the file
     if (this.errorToken) {
-      Error.throwErr(this.errorToken, "Unexpected token");
-      return;
+      this.errReporter.pushErr(this.updateErrorToken(), "Unexpected token", "100001");
     }
+    if (this.errReporter.hasError()) {
+        this.errReporter.throwAllErrs()
+        return;
+      }
 
     // Push EOF token
     this.tokenList.push({
       type: "EOF",
-      char_start: this.charStart,
-      char_end: this.charStart,
-      line_start: this.lineStart,
+      charStart: this.charStart,
+      charEnd: this.charStart,
+      lineStart: this.lineStart,
       lexeme: " ",
     });
   }
@@ -57,21 +84,20 @@ export class Lexer {
   // Remove a character from the source and add to lexeme
   private consume() {
     this.charEnd += 1;
-    this.lexeme += this.source[0];
-    this.source = this.source.substring(1);
+    this.lexeme += this.source[this.pos++];
   }
 
   // Add a token to the token list
   private addToken(tokenType: TT) {
     if (this.errorToken) {
-      Error.throwErr(this.errorToken, "Unexpected token");
-      return;
+      this.errReporter.pushErr(this.updateErrorToken(), "Unexpected token", "100001");
+      this.errorToken = false;
     }
     this.tokenList.push({
       type: tokenType,
-      char_start: this.charStart,
-      char_end: this.charEnd,
-      line_start: this.lineStart,
+      charStart: this.charStart,
+      charEnd: this.charEnd,
+      lineStart: this.lineStart,
       lexeme: this.lexeme,
     });
     this.charStart = this.charEnd + 1;
@@ -79,180 +105,167 @@ export class Lexer {
     this.lexeme = "";
   }
 
+  // Consumes and adds token
+  private consumeAdd(tokenType: TT) {
+    this.consume();
+    this.addToken(tokenType);
+  }
+
+  // Returns char at current position
+  private peek(offset: number = 0): string {
+    return this.source[this.pos + offset];
+  }
+
   // Return whether if there is a top value and it matches with `char`
-  private peek(char: string): boolean {
-    return this.source.length >= 1 && this.source[0] === char;
+  private peekEq(char: string): boolean {
+    return this.charsToScan() >= 1 && this.peek() === char;
   }
 
   private isAlpha(char: string): boolean {
     return (char >= "A" && char <= "Z") || (char >= "a" && char <= "z");
   }
-  private isNumberic(char: string): boolean {
+  private isNumeric(char: string): boolean {
     return char >= "0" && char <= "9";
   }
-  private isAlphaNumberic(char: string): boolean {
-    return this.isAlpha(char) || this.isNumberic(char)  || char === "_";
+  private isAlphaNumeric(char: string): boolean {
+    return this.isAlpha(char) || this.isNumeric(char) || char === "_";
+  }
+
+  // Returns how many characters are left to scan
+  private charsToScan() {
+    return this.source.length - this.pos;
   }
 
   // Lex a number
   private lexNumber() {
-    while(this.source.length && this.isNumberic(this.source[0])) {
+    while (this.charsToScan() && this.isNumeric(this.peek())) {
       this.consume();
     }
-    if(this.peek(".")) {
+    if (this.peekEq(".")) {
       this.consume();
-      while(this.source.length && this.isNumberic(this.source[0])) {
+      while (this.charsToScan() && this.isNumeric(this.peek())) {
         this.consume();
       }
     }
-    this.addToken("NUM")
+    this.addToken("NUM");
+  }
+
+  // Updates the error token and returns it
+  private updateErrorToken() {
+    this.errorToken = {
+      type: "EOF",
+      charStart: this.charStart,
+      charEnd: this.charEnd,
+      lineStart: this.lineStart,
+      lexeme: this.lexeme,
+    };
+    return this.errorToken;
   }
 
   private lex() {
-    // Update error token is there will be an error
-    if (this.errorToken) {
-      this.errorToken = {
-        type: "EOF",
-        char_start: this.charStart,
-        char_end: this.charEnd,
-        line_start: this.lineStart,
-        lexeme: this.lexeme,
-      };
+    const char: string = this.peek();
+    // Deal with simple 1-character tokens
+    if (char in singleCharTokens) {
+      this.consumeAdd(singleCharTokens[char]);
+      return;
     }
-    const char: string = this.source[0];
+
     switch (char) {
-      case "[":
-        this.consume();
-        this.addToken("LEFT_SQUARE");
-        break;
-      case "]":
-        this.consume();
-        this.addToken("RIGHT_SQUARE");
-        break;
-      case "(":
-        this.consume();
-        this.addToken("LEFT_PREN");
-        break;
-      case ")":
-        this.consume();
-        this.addToken("RIGHT_PREN");
-        break;
       case ">":
         this.consume();
-        if (this.peek(">")) {
-          this.consume();
-          this.addToken("PUSH_END_MATCH");
-        } else if (this.peek("=")) {
-          this.consume();
-          this.addToken("GREATER_THAN_OR_EQUAL_TO");
+        if (this.peekEq(">")) {
+          this.consumeAdd("PUSH_END_MATCH");
+        } else if (this.peekEq("=")) {
+          this.consumeAdd("GREATER_THAN_OR_EQUAL_TO");
         } else {
           this.addToken("GREATER_THAN");
         }
         break;
       case "<":
         this.consume();
-        if (this.peek("<")) {
-          this.consume();
-          this.addToken("PUSH_BEGIN_MATCH");
-        } else if (this.peek("=")) {
-          this.consume();
-          this.addToken("LESS_THAN_OR_EQUAL_TO");
+        if (this.peekEq("<")) {
+          this.consumeAdd("PUSH_BEGIN_MATCH");
+        } else if (this.peekEq("=")) {
+          this.consumeAdd("LESS_THAN_OR_EQUAL_TO");
         } else {
           this.addToken("LESS_THAN");
         }
         break;
-      case "|":
-        this.consume();
-        this.addToken("OR");
-        break;
-      case "&":
-        this.consume();
-        this.addToken("AND");
-        break;
       case "!":
         this.consume();
-        if (this.peek(">")) {
-          this.consume();
-          this.addToken("REMOVE_MATCH");
-        } else if (this.peek("=")) {
-          this.consume();
-          this.addToken("NOT_EQUAL_TO");
+        if (this.peekEq(">")) {
+          this.consumeAdd("REMOVE_MATCH");
+        } else if (this.peekEq("=")) {
+          this.consumeAdd("NOT_EQUAL_TO");
         } else {
           this.addToken("NOT");
         }
         break;
       case "=":
         this.consume();
-        if (this.peek(">")) {
-          this.consume();
-          this.addToken("RULE_MATCH");
+        if (this.peekEq(">")) {
+          this.consumeAdd("RULE_MATCH");
         } else {
           this.addToken("EQUAL_TO");
         }
         break;
       case "-":
         this.consume();
-        if (this.peek(">")) {
-          this.consume();
-          this.addToken("REPLACE_MATCH");
-        } else if(this.source.length && this.isNumberic(this.source[0])) {
-          this.lexNumber()
+        if (this.peekEq(">")) {
+          this.consumeAdd("REPLACE_MATCH");
+        } else if (this.charsToScan() && this.isNumeric(this.peek())) {
+          this.lexNumber();
         } else {
-          this.errorToken = {
-            type: "EOF",
-            char_start: this.charStart,
-            char_end: this.charEnd,
-            line_start: this.lineStart,
-            lexeme: this.lexeme,
-          };
+          // There is an invalid token
+          this.updateErrorToken();
         }
         break;
       // Whitespace (spaces and tabs)
       case " ":
       case "  ":
         if (this.errorToken) {
-          Error.throwErr(this.errorToken, "Unexpected token");
-          return;
+          this.errReporter.pushErr(this.updateErrorToken(), "Unexpected token", "100001");
+          this.errorToken = false;
         }
         this.charStart += 1;
         this.charEnd += 1;
-        this.source = this.source.substring(1);
+        this.pos += 1;
         break;
       // Newlines
       case "\n":
         if (this.errorToken) {
-          Error.throwErr(this.errorToken, "Unexpected token");
-          return;
+          this.errReporter.pushErr(this.updateErrorToken(), "Unexpected token", "100001");
+          this.errorToken = false;
         }
         this.charStart = 1;
         this.charEnd = 0;
         this.lineStart += 1;
         this.lineEnd += 1;
-        this.source = this.source.substring(1);
+        this.pos += 1;
         break;
       // Strings
       case '"':
         this.consume();
         const errorToken: Token = {
           type: "STR",
-          char_start: this.charStart,
-          char_end: this.charEnd,
-          line_start: this.lineStart,
-          lexeme: "\""
-        }
-        while (this.source.length >= 1 && !this.peek('"')) {
-          if (this.source.length >= 2 && this.source[0] === "\\") {
-            if (this.source[1] == "\\") {
+          charStart: this.charStart,
+          charEnd: this.charEnd,
+          lineStart: this.lineStart,
+          lexeme: '"',
+        };
+        while (this.charsToScan() >= 1 && !this.peekEq('"')) {
+          if (this.charsToScan() >= 2 && this.peek() === "\\") {
+            if (this.peek(1) == "\\") {
               this.charEnd += 2;
-              this.source = this.source.substring(2);
+              this.pos += 2;
               this.lexeme += "\\";
-            } else if (this.source[1] == "n") {
+            } else if (this.peek(1) == "n") {
               this.charEnd += 2;
-              this.source = this.source.substring(2);
+              this.pos += 2;
               this.lexeme += "\n";
-            } else if (this.source[1] == '"') {
+            } else if (this.peek(1) == '"') {
               this.charEnd += 2;
-              this.source = this.source.substring(2);
+              this.pos += 2;
               this.lexeme += '"';
             } else {
               this.consume();
@@ -261,29 +274,30 @@ export class Lexer {
             this.consume();
           }
         }
-        if(this.source.length === 0) {
-          Error.throwErr(errorToken, "Unterminated string")
+        if (this.charsToScan() === 0) {
+          this.errReporter.throwErr(errorToken, "Unterminated string", "100002");
           return;
         }
         this.consume();
         this.lexeme = this.lexeme.substring(1, this.lexeme.length - 1);
-        this.addToken("STR")
+        this.addToken("STR");
         break;
       // Comments
       case "#":
-        if (this.source.length >= 2 && this.source[1] === "[") {
-          while (this.source.length) {
+        // Multiline
+        if (this.charsToScan() >= 2 && this.peek(1) === "[") {
+          while (this.charsToScan()) {
             if (
-              this.source.length >= 2 &&
-              this.source[0] === "]" &&
-              this.source[1] === "#"
+              this.charsToScan() >= 2 &&
+              this.peek() === "]" &&
+              this.peek(1) === "#"
             ) {
               this.charStart += 2;
               this.charEnd += 2;
-              this.source = this.source.substring(2);
+              this.pos += 2;
               break;
             }
-            if (this.source[0] === "\n") {
+            if (this.peek() === "\n") {
               this.lineStart += 1;
               this.lineEnd += 1;
               this.charStart = 1;
@@ -292,75 +306,34 @@ export class Lexer {
               this.charStart += 1;
               this.charEnd += 1;
             }
-            this.source = this.source.substring(1);
+            this.pos += 1;
           }
-          // Multiline
         } else {
           // Single line (leave newline)
-          while (this.source.length && this.source[0] !== "\n") {
-            this.source = this.source.substring(1);
+          while (this.charsToScan() && this.peek() !== "\n") {
+            this.pos += 1;
           }
         }
         break;
       default:
         // Bools, Nils, Terms, and Keywords
         if (this.isAlpha(char)) {
-          while (this.isAlphaNumberic(this.source[0])) {
+          while (this.isAlphaNumeric(this.peek())) {
             this.consume();
           }
           if (char >= "A" && char <= "Z") {
             this.addToken("TERM");
-          } else
-            switch (this.lexeme) {
-              case "true":
-              case "false":
-                this.addToken("BOOL");
-                break;
-              case "nil":
-                this.addToken("NIL");
-                break;
-              case "num":
-                this.addToken("NUM_TYPE");
-                break;
-              case "str":
-                this.addToken("STR_TYPE");
-                break;
-              case "bool":
-                this.addToken("BOOL_TYPE");
-                break;
-              case "term":
-                this.addToken("TERM_TYPE");
-                break;
-              case "any":
-                this.addToken("ANY_TYPE");
-                break;
-              case "begin":
-                this.addToken("BEGIN");
-                break;
-              case "end":
-                this.addToken("END");
-                break;
-              case "as":
-                this.addToken("AS");
-                break;
-              case "if":
-                this.addToken("IF");
-                break;
-              default:
-                this.addToken("IDENTIFIER");
-            }
-        } else if(this.isNumberic(char)) {
-          this.lexNumber()
+          } else if (this.lexeme in KEYWORDS) {
+            this.addToken(KEYWORDS[this.lexeme]);
+          } else {
+            this.addToken("IDENTIFIER");
+          }
+        } else if (this.isNumeric(char)) {
+          this.lexNumber();
         } else {
           // No token was lexed, meaning this is the start of an unexpected token
           this.consume();
-          this.errorToken = {
-            type: "EOF",
-            char_start: this.charStart,
-            char_end: this.charEnd,
-            line_start: this.lineStart,
-            lexeme: this.lexeme,
-          };
+          this.updateErrorToken();
         }
     }
   }

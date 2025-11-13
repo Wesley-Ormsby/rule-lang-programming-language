@@ -1,22 +1,22 @@
 import { Lexer } from "./lexer.js";
 import { Parser } from "./parser.js";
-import { Error } from "./error.js";
+import { ErrorReporter } from "./error.js";
 import { Runtime } from "./runtime.js";
+import { RecordVal } from "./record.js";
 
-export function run(source:string, filePath:string, testing:boolean=false) {
-  Error.source = source;
-  Error.filePath = filePath;
-  Error.testing = testing;
-  const lexer = new Lexer(source);
-  if(!Error.hasError()) {
-    const parser = new Parser(lexer.getTokenList())
-    if(!Error.hasError()) {
-      const runtime = new Runtime(parser.getAST())
-      if(testing) {
+export function run(
+  source: string,
+  errorReporter: ErrorReporter
+): RecordVal[] | null {
+  const lexer = new Lexer(source, errorReporter);
+  if (!errorReporter.hasError()) {
+    const parser = new Parser(lexer.getTokenList(), errorReporter);
+    if (!errorReporter.hasError()) {
+      const runtime = new Runtime(parser.getAST(), errorReporter);
+      if (!errorReporter.hasError()) {
         return runtime.getRecord();
       }
     }
   }
+  return null;
 }
-// npm run run
-// npm run dev

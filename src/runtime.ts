@@ -1,31 +1,20 @@
-import { Error } from "./error.js";
-import {
-  Node,
-  type ValueType,
-  ValueScope,
-  RuleScope,
-  Value,
-  Function,
-  Variable,
-  PatternValueType,
-  PatternValueOr,
-  PatternValueNot,
-  BinaryExpression,
-  type Expression,
-  type ValueOrFunction,
-  type PatternValue,
-} from "./node.js";
-import { STDLIB, STDLIBFunction } from "./stdlib.js"
+import { ErrorReporter } from "./error.js";
+import { ExprNode, Node, PatternNode, RuleScopeNode, ValueNode, ValueOrFunctionNode, ValueScopeNode, ValueType } from "./node.js";
+import { RecordTap, RecordVal } from "./record.js";
+import {STDLIB, STDLIBFunction } from "./stdlib.js"
+
 export class Runtime {
-  private record: RecordVal[];
+  private record: RecordTap;
+  private errReporter: ErrorReporter;
 
   public getRecord(): RecordVal[]{
-    return this.record
+    return this.record.getRecord()
   }
 
-  constructor(ast: Node | null) {
-    this.record = [];
-    if (ast instanceof RuleScope) {
+  constructor(ast: Node | null, reporter: ErrorReporter) {
+    this.record = new RecordTap();
+    this.errReporter = reporter;
+    if (ast != null && ast.kind == "RuleScope") {
       this.evaluateRuleScope(ast);
     }
   }
@@ -36,17 +25,18 @@ export class Runtime {
     variables: VarMap = {}
   ): void {
     if (node === null) return;
-    if (node instanceof RuleScope) {
+    if (node.kind == "RuleScope") {
       this.evaluateRuleScope(node);
-    } else if (node instanceof ValueScope) {
+    } else if (node.kind == "ValueScope") {
       this.evaluateValueScope(node, pointer, variables);
     }
   }
 
-  private evaluateRuleScope(ruleScope: RuleScope): void {
+  private evaluateRuleScope(ruleScope: RuleScopeNode): void {
+    // Begin rules
     if (ruleScope.begin !== null) {
-      for (var scope of ruleScope.begin) {
-        if (Error.hasError()) return;
+      for (let scope of ruleScope.begin) {
+        if (this.errReporter.hasError()) return;
         this.evaluate(scope);
       }
     }
@@ -55,24 +45,23 @@ export class Runtime {
     if (ruleScope.customs !== null) {
       matchingLoop: while (true) {
         acrossLoop: for (
-          var pointer = 0;
-          pointer <= this.record.length;
+          let pointer = 0;
+          pointer < this.record.size();
           pointer++
         ) {
-          downLoop: for (var rule of ruleScope.customs) {
+          downLoop: for (let rule of ruleScope.customs) {
             const as: Array<string | null> = rule.variables;
-            const pattern: PatternValue[] = rule.pattern;
-            const expression: Expression | null = rule.expression;
+            const pattern: PatternNode = rule.pattern;
+            const expression: ExprNode | null = rule.expression;
             // Check if the pattern matches
-            if (as.length > this.record.length - pointer) continue downLoop;
+            if (as.length > this.record.size() - pointer) continue downLoop;
             const patternMatches = this.testPatternValueMatch(pattern, pointer);
             if (!patternMatches) continue downLoop;
             // Pattern matches, so get variables and remove the match from the record
-            //const varValues = this.record.splice(pointer, as.length);
             let variables: VarMap = {};
             as.forEach((name: string | null, index: number) => {
               if (name !== null) {
-                variables[name] = this.record[pointer + index];
+                variables[name] = this.record.get(pointer + index) as RecordVal;
               }
             });
             // Check if the expression matches
@@ -81,15 +70,17 @@ export class Runtime {
                 expression,
                 variables
               );
-              if (expressionEval === null) return;
+              if (expressionEval === null) return; // Error
               if (!hasValue(expressionEval)) continue downLoop;
             }
-            // Everythin matched, so run the scope and re-try matching
+            // Everything matched, so run the scope and re-try matching
             // First, remove the matched values from the record
-            this.record.splice(pointer, as.length);
+            for(let i = 0; i < as.length; i++) {
+              this.record.remove(pointer) // since we are removing items, the pointer always points to the removed item
+            }
             for (var scope of rule.scopes) {
               this.evaluate(scope, pointer, variables);
-              if (Error.hasError()) return;
+              if (this.errReporter.hasError()) return;
             }
             continue matchingLoop;
           }
@@ -98,22 +89,24 @@ export class Runtime {
       }
     }
 
+    // End rules
     if (ruleScope.end !== null) {
       for (var scope of ruleScope.end) {
-        if (Error.hasError()) return;
+        if (this.errReporter.hasError()) return;
         this.evaluate(scope);
       }
     }
   }
 
-  private testPatternValueMatch(patVal: PatternValue, pointer: number) {
-    let currentRecordValue = this.record[pointer];
-    if (patVal instanceof Value) {
+  private testPatternValueMatch(patVal: PatternNode, pointer: number): boolean {
+    let currentRecordValue = this.record.get(pointer);
+    if(currentRecordValue == null) return false; // This should never run, if it does, pointer is out of sync
+    if (patVal.kind == "Value") {
       return (
         patVal.type === currentRecordValue.type &&
         patVal.value === currentRecordValue.value
       );
-    } else if (patVal instanceof PatternValueType) {
+    } else if (patVal.kind == "PatternType") {
       switch (patVal.type) {
         case "NUM_TYPE":
           return currentRecordValue.type === "NUM";
@@ -127,15 +120,15 @@ export class Runtime {
           // ANY_TYPE
           return true;
       }
-    } else if (patVal instanceof PatternValueOr) {
+    } else if (patVal.kind == "PatternOr") {
       return (
-        this.testPatternValueMatch(patVal.left, pointer) |
+        this.testPatternValueMatch(patVal.left, pointer) ||
         this.testPatternValueMatch(patVal.right, pointer)
       );
-    } else if (patVal instanceof PatternValueNot) {
+    } else if (patVal.kind == "PatternNot") {
       return !this.testPatternValueMatch(patVal.right, pointer);
     } else {
-      for (var patternValue of patVal) {
+      for (var patternValue of patVal.patterns) {
         let test = this.testPatternValueMatch(patternValue, pointer);
         if (!test) return false;
         pointer += 1;
@@ -144,10 +137,10 @@ export class Runtime {
     }
   }
 
-  private evaluateExpression(exp: Expression, variables: VarMap): RecordVal|null {
-    if(exp instanceof Value || exp instanceof Variable || exp instanceof Function) {
-        return evaluateValVarFun(exp, variables, this.record, true);
-    } else if(exp instanceof BinaryExpression) {
+  private evaluateExpression(exp: ExprNode, variables: VarMap): RecordVal|null {
+    if(exp.kind == "Value" || exp.kind == "Variable" || exp.kind == "Function") {
+        return evaluateValVarFun(exp, variables, this.record, true, this.errReporter);
+    } else if(exp.kind == "BinaryExpr") {
         let left = this.evaluateExpression(exp.left, variables);
         if(left===null) return null;
         switch(exp.operator) {
@@ -155,10 +148,10 @@ export class Runtime {
             case "LESS_THAN":
             case "GREATER_THAN_OR_EQUAL_TO":
             case "LESS_THAN_OR_EQUAL_TO":
-                if(left.type !== "NUM") return Error.throwErr(exp.token, `Left operand of \`${exp.token.lexeme}\` operator must be a number`)
+                if(left.type !== "NUM") return this.errReporter.throwErr(exp.token, `Left operand of \`${exp.token.lexeme}\` operator must be a number`, "300001")
                 let right = this.evaluateExpression(exp.right, variables);
                 if(right===null) return null;
-                if(right.type !== "NUM") return Error.throwErr(exp.token, `Right operand of \`${exp.token.lexeme}\` operator must be a number`)
+                if(right.type !== "NUM") return this.errReporter.throwErr(exp.token, `Right operand of \`${exp.token.lexeme}\` operator must be a number`, "300002")
                 const leftNum = Number(left.value);
                 const rightNum = Number(right.value)
                 switch(exp.operator) {
@@ -201,33 +194,35 @@ export class Runtime {
   }
 
   private evaluateValueScope(
-    valueScope: ValueScope,
+    valueScope: ValueScopeNode,
     pointer: number = 0,
     variables: VarMap = {}
   ): void {
     let toAddToRecord:RecordVal[] = []
-    for (var valueVarOrFunction of valueScope.scope) {
-      let value: RecordVal|null = evaluateValVarFun(valueVarOrFunction, variables, this.record, valueScope.operator === "REPLACE_MATCH");
+    for (let valueVarOrFunction of valueScope.scope) {
+      let value: RecordVal|null = evaluateValVarFun(valueVarOrFunction, variables, this.record, valueScope.operator === "REPLACE_MATCH", this.errReporter);
       if(value === null) return;
       if (!valueVarOrFunction.push) continue;
       toAddToRecord.push(value);
     }
       if (valueScope.operator === "REPLACE_MATCH") {
-        this.record.splice(pointer, 0, ...toAddToRecord);
+        let addAtPointer = pointer;
+        for(let i = 0; i < toAddToRecord.length; i++) {
+          this.record.add(addAtPointer++, toAddToRecord[i])
+        }
       } else if (valueScope.operator === "PUSH_END_MATCH") {
-        this.record.push(...toAddToRecord);
+        toAddToRecord.forEach((val)=>this.record.addLast(val))
       } else if (valueScope.operator === "PUSH_BEGIN_MATCH") {
-        this.record.unshift(...toAddToRecord);
+        for(let i = toAddToRecord.length - 1; i >= 0; i--) {
+          this.record.addFirst(toAddToRecord[i])
+        }
       }
       // Otherwise, it is a REMOVE_MATCH
     }
 }
 
 export type VarMap = { [key: string]: RecordVal };
-export interface RecordVal {
-  type: ValueType;
-  value: string;
-}
+
 export function newRecordVal(type:ValueType, value:any) {
     return {type:type, value:String(value)}
 }
@@ -245,45 +240,43 @@ export function hasValue(value: RecordVal) {
         return true;
     }
 }
-export function toRecordVal(val: Value): RecordVal {
+export function toRecordVal(val: ValueNode): RecordVal {
     return {
       type: val.type,
       value: val.value,
     };
   }
-export function evaluateValVarFun(value:ValueOrFunction, variables: VarMap, record:RecordVal[], mustBeSafe:boolean):RecordVal|null {
-if(value instanceof Value) {
+export function evaluateValVarFun(value:ValueOrFunctionNode, variables: VarMap, record:RecordTap, mustBeSafe:boolean, errorReporter:ErrorReporter):RecordVal|null {
+if(value.kind == "Value") {
     return toRecordVal(value);
-} else if(value instanceof Variable) {
+} else if(value.kind == "Variable") {
     return variables[value.name]
 } else {
-    const parms = value.parms;
+    const params = value.params;
     const name = value.name;
     const errorToken = value.token;
     // FUNCTION
-    if(typeof STDLIB[name] !== "object") return Error.throwErr(errorToken, `Function \`${name}\` does not exist`)
+    if(typeof STDLIB[name] !== "object") return errorReporter.throwErr(errorToken, `Function \`${name}\` does not exist`, "300003")
     const funObj:STDLIBFunction = STDLIB[name];
-    if(!funObj.safe && mustBeSafe) return Error.throwErr(errorToken, `Function \`${name}\` is not a safe function and cannot be used in expressions or replaceing value scopes (\`-> [ ... ]\`)`)
-    if(funObj.parms.length !== parms.length) return Error.throwErr(errorToken, `Invalid number of parameters, function \`${name}\` must have ${funObj.parms.length} parameter${funObj.parms.length===1?"":"s"}`)
+    if(!funObj.safe && mustBeSafe) return errorReporter.throwErr(errorToken, `Function \`${name}\` is not a safe function and cannot be used in expressions or replacing value scopes (\`-> [ ... ]\`)`, "300004")
+    if(funObj.params.length !== params.length) return errorReporter.throwErr(errorToken, `Invalid number of parameters, function \`${name}\` must have ${funObj.params.length} parameter${funObj.params.length===1?"":"s"}`, "300005")
+    let runtimeContext = {
+      record, variables, mustBeSafe, lazyparams: value.params, errorToken, errorReporter
+    }
     if(funObj.lazy) {
         // Lazy run
-        return funObj.run([], record, variables, mustBeSafe, value.parms, errorToken)
+        return funObj.run([],runtimeContext);
     } else {
-        const runParms: RecordVal[] = []
-        for (let [index, parm] of parms.entries()) {
-            let newParm = evaluateValVarFun(parm, variables, record, mustBeSafe);
-            if (newParm === null) return null;
-            if (funObj.parms[index] !== "ANY" && funObj.parms[index] !== newParm.type) {
-                return Error.throwErr(parm.token, `Parameter ${index + 1} of \`${name}\` function must be a \`${funObj.parms[index].toLowerCase()}\` type`);
+        const runparams: RecordVal[] = []
+        for (let [index, param] of params.entries()) {
+            let newparam = evaluateValVarFun(param, variables, record, mustBeSafe, errorReporter);
+            if (newparam === null) return null;
+            if (funObj.params[index] !== "ANY" && funObj.params[index] !== newparam.type) {
+                return errorReporter.throwErr(param.token, `Parameter ${index + 1} of \`${name}\` function must be a \`${funObj.params[index].toLowerCase()}\` type`, "300006");
             }
-            runParms.push(newParm);
+            runparams.push(newparam);
         }
-        return funObj.run(runParms, record, variables, mustBeSafe, value.parms, errorToken)
-        // Unlazy run, test types
+        return funObj.run(runparams, runtimeContext)
     }
 }
 }
-/*
-TODO
-- WHen add values to record, when run or as list latter eg [ 1 2 3 get(2)] and replace? do you push the pointer over?
-*/

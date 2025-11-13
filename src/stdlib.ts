@@ -1,417 +1,274 @@
-import { Error } from "./error.js";
-import { Token } from "./token.js"
+import { ErrorReporter } from "./error.js";
+import { Token } from "./token.js";
+import { type ValueType, ValueOrFunctionNode } from "./node.js";
 import {
-  type ValueType,
-  ValueOrFunction,
-} from "./node.js";
-import {
-  type RecordVal,
   newRecordVal,
   hasValue,
   evaluateValVarFun,
   VarMap,
 } from "./runtime.js";
+import { notIntegerError, outOfRangeError } from "./utils/stdlibErrors.js";
+import { RecordTap, RecordVal } from "./record.js";
+export interface RunContext {
+  record: RecordTap;
+  variables: VarMap;
+  mustBeSafe: boolean;
+  lazyparams: ValueOrFunctionNode[];
+  errorToken: Token;
+  errorReporter: ErrorReporter;
+}
+
 export interface STDLIBFunction {
-  parms: ValueType[];
-  run: (
-    parms: RecordVal[],
-    record: RecordVal[],
-    variables: VarMap,
-    mustBeSafe: boolean,
-    lazyParms: ValueOrFunction[],
-    errorToken: Token,
-  ) => RecordVal | null;
+  params: ValueType[];
+  run: (params: RecordVal[], runContext: RunContext) => RecordVal | null;
   safe: boolean;
   lazy: boolean;
 }
+
 export const STDLIB: { [key: string]: STDLIBFunction } = {
   print: {
-    parms: ["ANY"],
+    params: ["ANY"],
     safe: true,
     lazy: false,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-    errorToken: Token
-    ) => {
-      console.log(parms[0].value);
+    run: (params: RecordVal[], runContext: RunContext) => {
+      console.log(params[0].value);
       return newRecordVal("NIL", "nil");
     },
   },
   type: {
-    parms: ["ANY"],
+    params: ["ANY"],
     safe: true,
     lazy: false,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-    errorToken: Token
-    ) => {
-      return newRecordVal("STR", parms[0].type.toLocaleLowerCase());
+    run: (params: RecordVal[], runContext: RunContext) => {
+      return newRecordVal("STR", params[0].type.toLocaleLowerCase());
     },
   },
   less: {
-    parms: ["NUM", "NUM"],
+    params: ["NUM", "NUM"],
     safe: true,
     lazy: false,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-    errorToken: Token
-    ) => {
+    run: (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal(
         "BOOL",
-        Number(parms[0].value) < Number(parms[1].value)
+        Number(params[0].value) < Number(params[1].value)
       );
     },
   },
   greater: {
-    parms: ["NUM", "NUM"],
+    params: ["NUM", "NUM"],
     safe: true,
     lazy: false,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-    errorToken: Token
-    ) => {
+    run: (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal(
         "BOOL",
-        Number(parms[0].value) > Number(parms[1].value)
+        Number(params[0].value) > Number(params[1].value)
       );
     },
   },
   less_or_equal: {
-    parms: ["NUM", "NUM"],
+    params: ["NUM", "NUM"],
     safe: true,
     lazy: false,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-    errorToken: Token
-    ) => {
+    run: (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal(
         "BOOL",
-        Number(parms[0].value) <= Number(parms[1].value)
+        Number(params[0].value) <= Number(params[1].value)
       );
     },
   },
   greater_or_equal: {
-    parms: ["NUM", "NUM"],
+    params: ["NUM", "NUM"],
     safe: true,
     lazy: false,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-    errorToken: Token
-    ) => {
+    run: (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal(
         "BOOL",
-        Number(parms[0].value) >= Number(parms[1].value)
+        Number(params[0].value) >= Number(params[1].value)
       );
     },
   },
   equal: {
-    parms: ["ANY", "ANY"],
+    params: ["ANY", "ANY"],
     safe: true,
     lazy: false,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-    errorToken: Token
-    ) => {
+    run: (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal(
         "BOOL",
-        parms[0].type === parms[1].type && parms[0].value === parms[1].value
+        params[0].type === params[1].type && params[0].value === params[1].value
       );
     },
   },
   not_equal: {
-    parms: ["ANY", "ANY"],
+    params: ["ANY", "ANY"],
     safe: true,
     lazy: false,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-    errorToken: Token
-    ) => {
+    run: (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal(
         "BOOL",
-        parms[0].type !== parms[1].type || parms[0].value !== parms[1].value
+        params[0].type !== params[1].type || params[0].value !== params[1].value
       );
     },
   },
   add: {
-    parms: ["NUM", "NUM"],
+    params: ["NUM", "NUM"],
     safe: true,
     lazy: false,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-    errorToken: Token
-    ) => {
+    run: (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal(
         "NUM",
-        Number(parms[0].value) + Number(parms[1].value)
+        Number(params[0].value) + Number(params[1].value)
       );
     },
   },
   sub: {
-    parms: ["NUM", "NUM"],
+    params: ["NUM", "NUM"],
     safe: true,
     lazy: false,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-    errorToken: Token
-    ) => {
+    run: (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal(
         "NUM",
-        Number(parms[0].value) - Number(parms[1].value)
+        Number(params[0].value) - Number(params[1].value)
       );
     },
   },
   mult: {
-    parms: ["NUM", "NUM"],
+    params: ["NUM", "NUM"],
     safe: true,
     lazy: false,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-    errorToken: Token
-    ) => {
+    run: (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal(
         "NUM",
-        Number(parms[0].value) * Number(parms[1].value)
+        Number(params[0].value) * Number(params[1].value)
       );
     },
   },
   div: {
-    parms: ["NUM", "NUM"],
+    params: ["NUM", "NUM"],
     safe: true,
     lazy: false,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-    errorToken: Token
-    ) => {
+    run: (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal(
         "NUM",
-        Number(parms[0].value) / Number(parms[1].value)
+        Number(params[0].value) / Number(params[1].value)
       );
     },
   },
   floor_div: {
-    parms: ["NUM", "NUM"],
+    params: ["NUM", "NUM"],
     safe: true,
     lazy: false,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-    errorToken: Token
-    ) => {
+    run: (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal(
         "NUM",
-        Math.floor(Number(parms[0].value) / Number(parms[1].value))
+        Math.floor(Number(params[0].value) / Number(params[1].value))
       );
     },
   },
   mod: {
-    parms: ["NUM", "NUM"],
+    params: ["NUM", "NUM"],
     safe: true,
     lazy: false,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-    errorToken: Token
-    ) => {
+    run: (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal(
         "NUM",
-        Number(parms[0].value) % Number(parms[1].value)
+        Number(params[0].value) % Number(params[1].value)
       );
     },
   },
   floor: {
-    parms: ["NUM"],
+    params: ["NUM"],
     safe: true,
     lazy: false,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-    errorToken: Token
-    ) => {
-      return newRecordVal("NUM", Math.floor(Number(parms[0].value)));
+    run: (params: RecordVal[], runContext: RunContext) => {
+      return newRecordVal("NUM", Math.floor(Number(params[0].value)));
     },
   },
   ceil: {
-    parms: ["NUM"],
+    params: ["NUM"],
     safe: true,
     lazy: false,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-    errorToken: Token
-    ) => {
-      return newRecordVal("NUM", Math.ceil(Number(parms[0].value)));
+    run: (params: RecordVal[], runContext: RunContext) => {
+      return newRecordVal("NUM", Math.ceil(Number(params[0].value)));
     },
   },
   when: {
-    parms: ["ANY", "ANY", "ANY"],
+    params: ["ANY", "ANY", "ANY"],
     safe: true,
     lazy: true,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-    errorToken: Token
-    ) => {
+    run: (params: RecordVal[], runContext: RunContext) => {
       const condition = evaluateValVarFun(
-        lazyParms[0],
-        variables,
-        record,
-        mustBeSafe,
+        runContext.lazyparams[0],
+        runContext.variables,
+        runContext.record,
+        runContext.mustBeSafe,
+        runContext.errorReporter
       );
       if (condition === null) return null;
       if (hasValue(condition)) {
         return evaluateValVarFun(
-          lazyParms[1],
-          variables,
-          record,
-          mustBeSafe,
+          runContext.lazyparams[1],
+          runContext.variables,
+          runContext.record,
+          runContext.mustBeSafe,
+          runContext.errorReporter
         );
       } else {
         return evaluateValVarFun(
-          lazyParms[2],
-          variables,
-          record,
-          mustBeSafe,
+          runContext.lazyparams[2],
+          runContext.variables,
+          runContext.record,
+          runContext.mustBeSafe,
+          runContext.errorReporter
         );
       }
     },
   },
   or: {
-    parms: ["ANY", "ANY"],
+    params: ["ANY", "ANY"],
     safe: true,
     lazy: true,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-    errorToken: Token
-    ) => {
+    run: (params: RecordVal[], runContext: RunContext) => {
       const left = evaluateValVarFun(
-        lazyParms[0],
-        variables,
-        record,
-        mustBeSafe,
+        runContext.lazyparams[0],
+        runContext.variables,
+        runContext.record,
+        runContext.mustBeSafe,
+        runContext.errorReporter
       );
       if (left === null) return null;
       if (hasValue(left)) {
         return left;
       } else {
         return evaluateValVarFun(
-          lazyParms[1],
-          variables,
-          record,
-          mustBeSafe,
+          runContext.lazyparams[1],
+          runContext.variables,
+          runContext.record,
+          runContext.mustBeSafe,
+          runContext.errorReporter
         );
       }
     },
   },
   and: {
-    parms: ["ANY", "ANY"],
+    params: ["ANY", "ANY"],
     safe: true,
     lazy: true,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-    errorToken: Token
-    ) => {
+    run: (params: RecordVal[], runContext: RunContext) => {
       const left = evaluateValVarFun(
-        lazyParms[0],
-        variables,
-        record,
-        mustBeSafe,
+        runContext.lazyparams[0],
+        runContext.variables,
+        runContext.record,
+        runContext.mustBeSafe,
+        runContext.errorReporter
       );
       if (left === null) return null;
       if (hasValue(left)) {
         return evaluateValVarFun(
-          lazyParms[1],
-          variables,
-          record,
-          mustBeSafe,
+          runContext.lazyparams[1],
+          runContext.variables,
+          runContext.record,
+          runContext.mustBeSafe,
+          runContext.errorReporter
         );
       } else {
         return left;
@@ -419,213 +276,112 @@ export const STDLIB: { [key: string]: STDLIBFunction } = {
     },
   },
   not: {
-    parms: ["ANY"],
+    params: ["ANY"],
     safe: true,
     lazy: false,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-    errorToken: Token
-    ) => {
-      return newRecordVal("BOOL", !hasValue(parms[0]));
+    run: (params: RecordVal[], runContext: RunContext) => {
+      return newRecordVal("BOOL", !hasValue(params[0]));
     },
   },
   empty: {
-    parms: [],
+    params: [],
     safe: false,
     lazy: false,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-    errorToken: Token
-    ) => {
-      record.length = 0;
+    run: (params: RecordVal[], runContext: RunContext) => {
+      runContext.record.setRecord([]);
       return newRecordVal("NIL", "nil");
     },
   },
   size: {
-    parms: [],
+    params: [],
     safe: true,
     lazy: false,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-    errorToken: Token
-    ) => {
-      return newRecordVal("NUM", record.length);
+    run: (params: RecordVal[], runContext: RunContext) => {
+      return newRecordVal("NUM", runContext.record.size());
     },
   },
   length: {
-    parms: ["STR"],
+    params: ["STR"],
     safe: true,
     lazy: false,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-    errorToken: Token
-    ) => {
-      return newRecordVal("NUM", parms[0].value.length);
+    run: (params: RecordVal[], runContext: RunContext) => {
+      return newRecordVal("NUM", params[0].value.length);
     },
   },
   join: {
-    parms: ["STR", "STR"],
+    params: ["STR", "STR"],
     safe: true,
     lazy: false,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-    errorToken: Token
-    ) => {
-      return newRecordVal("STR", parms[0].value + parms[1].value);
+    run: (params: RecordVal[], runContext: RunContext) => {
+      return newRecordVal("STR", params[0].value + params[1].value);
     },
   },
   join_with: {
-    parms: ["STR", "STR", "STR"],
+    params: ["STR", "STR", "STR"],
     safe: true,
     lazy: false,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-    errorToken: Token
-    ) => {
-      return newRecordVal("STR", parms[0].value + parms[2].value + parms[1].value);
+    run: (params: RecordVal[], runContext: RunContext) => {
+      return newRecordVal(
+        "STR",
+        params[0].value + params[2].value + params[1].value
+      );
     },
   },
   trim: {
-    parms: ["STR"],
+    params: ["STR"],
     safe: true,
     lazy: false,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-    errorToken: Token
-    ) => {
-      return newRecordVal("STR", parms[0].value.trim());
+    run: (params: RecordVal[], runContext: RunContext) => {
+      return newRecordVal("STR", params[0].value.trim());
     },
   },
   is_str: {
-    parms: ["ANY"],
+    params: ["ANY"],
     safe: true,
     lazy: false,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-    errorToken: Token
-    ) => {
-      return newRecordVal("BOOL", parms[0].type === "STR");
+    run: (params: RecordVal[], runContext: RunContext) => {
+      return newRecordVal("BOOL", params[0].type === "STR");
     },
   },
   is_num: {
-    parms: ["ANY"],
+    params: ["ANY"],
     safe: true,
     lazy: false,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-    errorToken: Token
-    ) => {
-      return newRecordVal("BOOL", parms[0].type === "NUM");
+    run: (params: RecordVal[], runContext: RunContext) => {
+      return newRecordVal("BOOL", params[0].type === "NUM");
     },
   },
   is_term: {
-    parms: ["ANY"],
+    params: ["ANY"],
     safe: true,
     lazy: false,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-    errorToken: Token
-    ) => {
-      return newRecordVal("BOOL", parms[0].type === "TERM");
+    run: (params: RecordVal[], runContext: RunContext) => {
+      return newRecordVal("BOOL", params[0].type === "TERM");
     },
   },
   is_bool: {
-    parms: ["ANY"],
+    params: ["ANY"],
     safe: true,
     lazy: false,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-    errorToken: Token
-    ) => {
-      return newRecordVal("BOOL", parms[0].type === "BOOL");
+    run: (params: RecordVal[], runContext: RunContext) => {
+      return newRecordVal("BOOL", params[0].type === "BOOL");
     },
   },
   is_nil: {
-    parms: ["ANY"],
+    params: ["ANY"],
     safe: true,
     lazy: false,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-    errorToken: Token
-    ) => {
-      return newRecordVal("BOOL", parms[0].type === "NIL");
+    run: (params: RecordVal[], runContext: RunContext) => {
+      return newRecordVal("BOOL", params[0].type === "NIL");
     },
   },
   to_term: {
-    parms: ["STR"],
+    params: ["STR"],
     safe: true,
     lazy: false,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-    errorToken: Token
-    ) => {
+    run: (params: RecordVal[], runContext: RunContext) => {
       let index = 1;
-      let str = parms[0].value.trim();
+      let str = params[0].value.trim();
       if (str.length === 0) return newRecordVal("NIL", "nil");
       if (str[0] < "A" || str[0] > "Z") return newRecordVal("NIL", "nil");
 
@@ -643,35 +399,19 @@ export const STDLIB: { [key: string]: STDLIBFunction } = {
     },
   },
   to_str: {
-    parms: ["ANY"],
+    params: ["ANY"],
     safe: true,
     lazy: false,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-    errorToken: Token
-    ) => {
-      return newRecordVal("STR", parms[0].value);
+    run: (params: RecordVal[], runContext: RunContext) => {
+      return newRecordVal("STR", params[0].value);
     },
   },
   to_num: {
-    parms: ["STR"],
+    params: ["STR"],
     safe: true,
     lazy: false,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-    errorToken: Token
-    ) => {
-      let str = parms[0].value.trim();
+    run: (params: RecordVal[], runContext: RunContext) => {
+      let str = params[0].value.trim();
       let index = 0;
       if (str.length === 0) return newRecordVal("NIL", "nil");
       if (str[0] === "-") {
@@ -695,147 +435,113 @@ export const STDLIB: { [key: string]: STDLIBFunction } = {
     },
   },
   get: {
-    parms: ["NUM"],
+    params: ["NUM"],
     safe: true,
     lazy: false,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-      errorToken: Token
-    ) => {
-        const num = Number(parms[0].value)
-        if(!Number.isInteger(num)) return Error.throwErr(lazyParms[0].token, `Parameter for \`get\` function must be an integer`)
-        const index = num<0 ? record.length + num: num-1
-        if(num === 0 || index >= record.length || index < 0) return Error.throwErr(lazyParms[0].token, `\`${num}\` is out of range for \`get\` function, the record has ${record.length} values`)
-        return record[index];
+    run: (params: RecordVal[], runContext: RunContext) => {
+      const num = Number(params[0].value);
+      if (!Number.isInteger(num))
+        return notIntegerError(
+          runContext.errorReporter,
+          runContext.lazyparams[0].token,
+          "get"
+        );
+      const result = runContext.record.get(num);
+      if (result == null)
+        return outOfRangeError(
+          runContext.errorReporter,
+          runContext.lazyparams[0].token,
+          num,
+          runContext.record.size(),
+          "get"
+        );
+      return result;
     },
   },
   push: {
-    parms: ["ANY"],
+    params: ["ANY"],
     safe: false,
     lazy: false,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-      errorToken: Token
-    ) => {
-        record.push(parms[0])
-        return parms[0];
+    run: (params: RecordVal[], runContext: RunContext) => {
+      runContext.record.addLast(params[0]);
+      return params[0];
     },
   },
   push_begin: {
-    parms: ["ANY"],
+    params: ["ANY"],
     safe: false,
     lazy: false,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-      errorToken: Token
-    ) => {
-        record.unshift(parms[0])
-        return parms[0];
+    run: (params: RecordVal[], runContext: RunContext) => {
+      runContext.record.addFirst(params[0]);
+      return params[0];
     },
   },
   pop_begin: {
-    parms: [],
+    params: [],
     safe: false,
     lazy: false,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-      errorToken: Token
-    ) => {
-        let shift = record.shift()
-        if(shift === undefined) return newRecordVal("NIL", "nil")
-        return shift;
+    run: (params: RecordVal[], runContext: RunContext) => {
+      let shift = runContext.record.removeFirst();
+      if (shift === null) return newRecordVal("NIL", "nil");
+      return shift;
     },
   },
   pop: {
-    parms: [],
+    params: [],
     safe: false,
     lazy: false,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-      errorToken: Token
-    ) => {
-        let pop = record.pop()
-        if(pop === undefined) return newRecordVal("NIL", "nil")
-        return pop;
+    run: (params: RecordVal[], runContext: RunContext) => {
+      let pop = runContext.record.removeLast();
+      if (pop === null) return newRecordVal("NIL", "nil");
+      return pop;
     },
   },
   insert: {
-    parms: ["ANY", "NUM"],
+    params: ["ANY", "NUM"],
     safe: false,
     lazy: false,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-      errorToken: Token
-    ) => {
-        const num = Number(parms[1].value)
-        if(!Number.isInteger(num)) return Error.throwErr(lazyParms[1].token, `Parameter for \`insert\` function must be an integer`)
-        const index = num<0 ? record.length + num: num-1
-        if(num === 0 || index > record.length || index < 0) return Error.throwErr(lazyParms[0].token, `\`${num}\` is out of range for \`index\` function, the record has ${record.length} values`)
-        record.splice(index,0,parms[0])
-        return parms[0];
+    run: (params: RecordVal[], runContext: RunContext) => {
+      const num = Number(params[1].value);
+      if (!Number.isInteger(num))
+        return notIntegerError(
+          runContext.errorReporter,
+          runContext.lazyparams[1].token,
+          "insert"
+        );
+      const result = runContext.record.add(num, params[0]);
+      if (!result)
+        return outOfRangeError(
+          runContext.errorReporter,
+          runContext.lazyparams[1].token,
+          num,
+          runContext.record.size(),
+          "insert"
+        );
+      return params[0];
     },
   },
   split_push: {
-    parms: ["STR", "STR"],
+    params: ["STR", "STR"],
     safe: false,
     lazy: false,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-      errorToken: Token
-    ) => {
-        record.push(...parms[0].value.split(parms[1].value).map((substring) => newRecordVal("STR", substring)))
-        return newRecordVal("NIL", "nil");
+    run: (params: RecordVal[], runContext: RunContext) => {
+      params[0].value
+        .split(params[1].value)
+        .map((substring) => newRecordVal("STR", substring))
+        .forEach((value) => {
+          runContext.record.addLast(value);
+        });
+
+      return newRecordVal("NIL", "nil");
     },
   },
   reverse: {
-    parms: [],
+    params: [],
     safe: false,
     lazy: false,
-    run: (
-      parms: RecordVal[],
-      record: RecordVal[],
-      variables: VarMap,
-      mustBeSafe: boolean,
-      lazyParms: ValueOrFunction[],
-      errorToken: Token
-    ) => {
-        record.reverse()
-        return newRecordVal("NIL", "nil")
+    run: (params: RecordVal[], runContext: RunContext) => {
+      runContext.record.reverse();
+      return newRecordVal("NIL", "nil");
     },
   },
-  
 };

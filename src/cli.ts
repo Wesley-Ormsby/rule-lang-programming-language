@@ -1,25 +1,38 @@
 #!/usr/bin/env node
-import { run } from "./main.js"
+import { run } from "./main.js";
 import fs from "fs";
+import path from "path";
 import { resolve } from "path";
+import { ConsoleErrorReporter } from "./error.js";
+import { colour } from "./utils/consoleUtils.js";
 
-const [, , filepath] = process.argv;
-
-const absPath = resolve(process.cwd(), filepath);
-
-const reset = "\x1b[0m";
-const bright = "\x1b[1m";
-const red = "\x1b[31m";
-
-
-if(filepath.split(".")[1] != "rul" && filepath.split(".")[1] != "txt") {
-  console.log(`${bright}${red}Error${reset}${bright}: Invalid file extension. File must be '.rul' or '.txt'${reset}\n`)
+if (process.argv.length < 3) {
+  console.log("Usage: rule <file.rule>");
 } else {
-  fs.readFile(absPath, "utf8", function (err, data) {
-    if (err) {
-      console.log(`${bright}${red}Error${reset}${bright}: File '${filepath}' does not exist${reset}\n`)
-    } else {
-      run(data, filepath);
-    }
-  });
+  const [, , filepath] = process.argv;
+
+  const absPath = resolve(process.cwd(), filepath);
+
+  const extension = path.extname(filepath).toLowerCase();
+  if (!filepath) {
+    console.log("Usage: rule <file.rule>");
+  } else if (extension != ".rul" && extension != ".txt") {
+    console.log(
+      colour.bright(colour.red("Error")) +
+        colour.bright(
+          ": Invalid file extension. File must be '.rul' or '.txt'\n"
+        )
+    );
+  } else {
+    fs.readFile(absPath, "utf8", function (err, data) {
+      if (err) {
+        console.log(
+          colour.bright(colour.red("Error")) +
+            colour.bright(`: Could not read '${filepath}'\n`)
+        );
+      } else {
+        run(data, new ConsoleErrorReporter(data, filepath));
+      }
+    });
+  }
 }
