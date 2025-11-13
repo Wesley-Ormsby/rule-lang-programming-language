@@ -57,8 +57,7 @@ export class ConsoleErrorReporter implements ErrorReporter {
     const line = this.source.split("\n")[lineNum - 1];
     let left = line.slice(0, errStart - 1).trimStart();
     let errStr = token.lexeme;
-    let right = line.slice(left.length + errStr.length).trimEnd();
-
+    let right = line.trimStart().slice(left.length + errStr.length).trimEnd();
     const maxSize = 80;
     if (left.length + errStr.length > maxSize) {
       if (errStr.length > maxSize / 2 && left.length > maxSize) {
@@ -82,7 +81,7 @@ export class ConsoleErrorReporter implements ErrorReporter {
     // Otherwise, we can keep left, errStr and right
 
     let fullError =
-      `${colour.bright(colour.red("Error"))}${colour.bright(`: ${message}`)}\n` +
+      `${colour.bright(colour.red("Error (E" + err.code + ")"))}${colour.bright(`: ${message}`)}\n` +
       `   ${colour.blue("-->")} ${this.filePath}${lineNum}:${errStart}\n` +
       `   ${colour.blue(" ".repeat(String(lineNum).length) + " |")} \n` +
       `   ${colour.blue(`${lineNum} |`)} ${left}${colour.red(errStr)}${right}\n` +
