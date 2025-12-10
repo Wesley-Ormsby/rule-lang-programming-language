@@ -24,6 +24,8 @@ const KEYWORDS: Record<string, TT> = {
   end: "END",
   as: "AS",
   if: "IF",
+  import: "IMPORT",
+  from: "FROM"
 };
 
 export class Lexer {

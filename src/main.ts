@@ -12,7 +12,7 @@ export function run(
   if (!errorReporter.hasError()) {
     const parser = new Parser(lexer.getTokenList(), errorReporter);
     if (!errorReporter.hasError()) {
-      const runtime = new Runtime(parser.getAST(), errorReporter);
+      const runtime = new Runtime(parser.getAST(), parser.getImports(), errorReporter);
       if (!errorReporter.hasError()) {
         return runtime.getRecord();
       }

@@ -38,7 +38,7 @@ export class ConsoleErrorReporter implements ErrorReporter {
 
   // Pushes an error without yet throwing them
   public pushErr(token: Token, message: string, code: string) {
-    this.errors.push({ token, message,code });
+    this.errors.push({ token, message, code });
   }
 
   // Throws an error

@@ -9,7 +9,8 @@ import {
   type ValueType,
   type Node,
 } from "./node.js";
-import { ErrorReporter } from "./error.js";
+import { ErrorInfo, ErrorReporter } from "./error.js";
+import { LIBRARIES, Library } from "./utils/libraryUtils.js";
 
 class ParseError extends Error {
   code: string;
@@ -27,6 +28,7 @@ class ParseError extends Error {
 export class Parser {
   private tokenList: Token[];
   private ast: Node | null;
+  private imports: Library;
   private errReporter: ErrorReporter;
   private pos: number;
 
@@ -34,15 +36,29 @@ export class Parser {
     this.tokenList = tokenList;
     this.errReporter = reporter;
     this.pos = 0;
+    this.imports = {};
+    let delayedErrors: ErrorInfo[] = []; // Used for import errors that don't need to be displayed until a real parsing error occurs (since the code checks for hasError(), which would mess up parsing)
+    let thrownErrors = false;
     try {
+      this.parseImports(delayedErrors);
       this.ast = this.parseRuleScope(false);
     } catch (error: unknown) {
       if (error instanceof ParseError) {
+        for (var err of delayedErrors)
+          this.errReporter.pushErr(err.token, err.message, err.code);
         this.errReporter.throwErr(error.token, error.message, error.code);
+        thrownErrors = true;
         this.ast = null;
       } else {
         throw error;
       }
+    }
+
+    if (delayedErrors.length && !thrownErrors) {
+      for (var err of delayedErrors)
+        this.errReporter.pushErr(err.token, err.message, err.code);
+      this.errReporter.throwAllErrs();
+      this.ast = null;
     }
 
     // Pretty Print
@@ -64,6 +80,11 @@ export class Parser {
   public getAST(): Node | null {
     return this.ast;
   }
+
+  public getImports(): Library {
+    return this.imports;
+  }
+
   private next(): Token {
     if (this.pos >= this.tokenList.length) {
       return {
@@ -85,14 +106,10 @@ export class Parser {
       throw new ParseError(this.tokenList[this.pos], message, code);
     }
     return this.tokenList[this.pos++];
-  } 
+  }
 
   private throwErrOnCurrentToken(message: string, code: string) {
     throw new ParseError(this.tokenList[this.pos], message, code);
-  }
-
-  private atEnd(): boolean {
-    return this.tokenList[this.pos].type == "EOF";
   }
 
   private parseRuleScope(needsSquareBrackets: boolean): ScopeNode | null {
@@ -240,7 +257,11 @@ export class Parser {
           if (value === null) break;
           params.push(value);
         }
-        this.expect("RIGHT_PREN", `Expected \`)\` to end the function call`, "200009");
+        this.expect(
+          "RIGHT_PREN",
+          `Expected \`)\` to end the function call`,
+          "200009"
+        );
         return {
           kind: "Function",
           name: token.lexeme,
@@ -386,12 +407,19 @@ export class Parser {
           `Expected pattern value in the pattern group`,
           "200014"
         );
-      this.expect("RIGHT_PREN", `Expected \`)\` to end the pattern group`, "200015")
+      this.expect(
+        "RIGHT_PREN",
+        `Expected \`)\` to end the pattern group`,
+        "200015"
+      );
       patternValue = { kind: "PatternGroup", patterns: pattern.patternValues };
       as = as.concat(pattern.as);
     } else {
       if (notLookAhead)
-        this.throwErrOnCurrentToken(`Expected pattern value after \`!\` in pattern`, "200016")
+        this.throwErrOnCurrentToken(
+          `Expected pattern value after \`!\` in pattern`,
+          "200016"
+        );
       return null;
     }
 
@@ -654,6 +682,97 @@ export class Parser {
         return "TERM";
       default:
         return "NIL";
+    }
+  }
+
+  /* Parse Imports */
+  private parseImports(delayedErrors: ErrorInfo[]) {
+    const importedLibs = new Set<string>();
+    while (this.peek("IMPORT")) {
+      this.next();
+      if (this.peek("IDENTIFIER")) {
+        // Import everything from library
+        const libraryToken = this.next();
+        if (importedLibs.has(libraryToken.lexeme)) {
+          delayedErrors.push({
+            token: libraryToken,
+            message: `Multiple imports to library \`${libraryToken.lexeme}\``,
+            code: "200034",
+          });
+        } else if (LIBRARIES.hasOwnProperty(libraryToken.lexeme)) {
+          Object.assign(this.imports, LIBRARIES[libraryToken.lexeme]);
+          importedLibs.add(libraryToken.lexeme)
+        } else {
+          delayedErrors.push({
+            token: libraryToken,
+            message: `Library \`${libraryToken.lexeme}\` does not exist`,
+            code: "200035",
+          });
+        }
+      } else {
+        // Import only specific functions from library
+        this.expect(
+          "LEFT_SQUARE",
+          "Expected library name or `[` in import statement",
+          "200030"
+        );
+        let tokenList: Token[] = [];
+        while (this.peek("IDENTIFIER")) {
+          tokenList.push(this.next());
+        }
+        this.expect(
+          "RIGHT_SQUARE",
+          "Expected `]` to close function group in import statement",
+          "200031"
+        );
+        this.expect(
+          "FROM",
+          "Expected `from` after function group in import statement",
+          "200032"
+        );
+        const libraryToken = this.expect(
+          "IDENTIFIER",
+          "Expected library name after `from` in import statement",
+          "200033"
+        );
+        if (importedLibs.has(libraryToken.lexeme)) {
+          delayedErrors.push({
+            token: libraryToken,
+            message: `Multiple imports to library \`${libraryToken.lexeme}\``,
+            code: "200034",
+          });
+        } else if (LIBRARIES.hasOwnProperty(libraryToken.lexeme)) {
+          const lib = LIBRARIES[libraryToken.lexeme];
+          const addedFunctionSet = new Set<string>();
+          for (let fn of tokenList) {
+            if (lib.hasOwnProperty(fn.lexeme)) {
+              if (addedFunctionSet.has(fn.lexeme)) {
+                delayedErrors.push({
+                  token: fn,
+                  message: `Duplicate function \`${fn.lexeme}\` import`,
+                  code: "200037",
+                });
+              } else {
+                this.imports[fn.lexeme] = lib[fn.lexeme];
+                addedFunctionSet.add(fn.lexeme)
+              }
+            } else {
+              delayedErrors.push({
+                token: fn,
+                message: `Function \`${fn.lexeme}\` not found in \`${libraryToken.lexeme}\` library`,
+                code: "200036",
+              });
+            }
+          }
+          importedLibs.add(libraryToken.lexeme)
+        } else {
+          delayedErrors.push({
+            token: libraryToken,
+            message: `Library \`${libraryToken.lexeme}\` does not exist`,
+            code: "200035",
+          });
+        }
+      }
     }
   }
 

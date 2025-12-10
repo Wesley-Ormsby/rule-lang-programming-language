@@ -11,7 +11,7 @@
   },
   "scripts": {
     "dev": "npx tsc --watch",
-    "test": "node dist/tests.js",
+    "test": "node dist/tests/testRunner.js",
     "lint": "eslint --ext .js,.ts .",
     "format": "prettier --ignore-path .gitignore --write \"**/*.+(js|ts|json)\"",
     "build": "tsc"

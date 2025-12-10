@@ -1,31 +1,14 @@
-import { ErrorReporter } from "./error.js";
-import { Token } from "./token.js";
-import { type ValueType, ValueOrFunctionNode } from "./node.js";
 import {
   newRecordVal,
   hasValue,
   evaluateValVarFun,
-  VarMap,
+  RunContext,
 } from "./runtime.js";
-import { notIntegerError, outOfRangeError } from "./utils/stdlibErrors.js";
-import { RecordTap, RecordVal } from "./record.js";
-export interface RunContext {
-  record: RecordTap;
-  variables: VarMap;
-  mustBeSafe: boolean;
-  lazyparams: ValueOrFunctionNode[];
-  errorToken: Token;
-  errorReporter: ErrorReporter;
-}
+import { notIntegerError, outOfRangeError } from "./utils/libraryErrors.js";
+import { RecordVal } from "./record.js";
+import { Library } from "./utils/libraryUtils.js";
 
-export interface STDLIBFunction {
-  params: ValueType[];
-  run: (params: RecordVal[], runContext: RunContext) => RecordVal | null;
-  safe: boolean;
-  lazy: boolean;
-}
-
-export const STDLIB: { [key: string]: STDLIBFunction } = {
+export const StandardLibrary: Library = {
   print: {
     params: ["ANY"],
     safe: true,
@@ -175,22 +158,6 @@ export const STDLIB: { [key: string]: STDLIBFunction } = {
       );
     },
   },
-  floor: {
-    params: ["NUM"],
-    safe: true,
-    lazy: false,
-    run: (params: RecordVal[], runContext: RunContext) => {
-      return newRecordVal("NUM", Math.floor(Number(params[0].value)));
-    },
-  },
-  ceil: {
-    params: ["NUM"],
-    safe: true,
-    lazy: false,
-    run: (params: RecordVal[], runContext: RunContext) => {
-      return newRecordVal("NUM", Math.ceil(Number(params[0].value)));
-    },
-  },
   when: {
     params: ["ANY", "ANY", "ANY"],
     safe: true,
@@ -201,7 +168,8 @@ export const STDLIB: { [key: string]: STDLIBFunction } = {
         runContext.variables,
         runContext.record,
         runContext.mustBeSafe,
-        runContext.errorReporter
+        runContext.errorReporter,
+        runContext.nameSpace
       );
       if (condition === null) return null;
       if (hasValue(condition)) {
@@ -210,7 +178,8 @@ export const STDLIB: { [key: string]: STDLIBFunction } = {
           runContext.variables,
           runContext.record,
           runContext.mustBeSafe,
-          runContext.errorReporter
+          runContext.errorReporter,
+          runContext.nameSpace
         );
       } else {
         return evaluateValVarFun(
@@ -218,7 +187,8 @@ export const STDLIB: { [key: string]: STDLIBFunction } = {
           runContext.variables,
           runContext.record,
           runContext.mustBeSafe,
-          runContext.errorReporter
+          runContext.errorReporter,
+          runContext.nameSpace
         );
       }
     },
@@ -233,7 +203,8 @@ export const STDLIB: { [key: string]: STDLIBFunction } = {
         runContext.variables,
         runContext.record,
         runContext.mustBeSafe,
-        runContext.errorReporter
+        runContext.errorReporter,
+        runContext.nameSpace
       );
       if (left === null) return null;
       if (hasValue(left)) {
@@ -244,7 +215,8 @@ export const STDLIB: { [key: string]: STDLIBFunction } = {
           runContext.variables,
           runContext.record,
           runContext.mustBeSafe,
-          runContext.errorReporter
+          runContext.errorReporter,
+          runContext.nameSpace
         );
       }
     },
@@ -259,7 +231,8 @@ export const STDLIB: { [key: string]: STDLIBFunction } = {
         runContext.variables,
         runContext.record,
         runContext.mustBeSafe,
-        runContext.errorReporter
+        runContext.errorReporter,
+        runContext.nameSpace
       );
       if (left === null) return null;
       if (hasValue(left)) {
@@ -268,7 +241,8 @@ export const STDLIB: { [key: string]: STDLIBFunction } = {
           runContext.variables,
           runContext.record,
           runContext.mustBeSafe,
-          runContext.errorReporter
+          runContext.errorReporter,
+          runContext.nameSpace
         );
       } else {
         return left;
@@ -314,25 +288,6 @@ export const STDLIB: { [key: string]: STDLIBFunction } = {
     lazy: false,
     run: (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal("STR", params[0].value + params[1].value);
-    },
-  },
-  join_with: {
-    params: ["STR", "STR", "STR"],
-    safe: true,
-    lazy: false,
-    run: (params: RecordVal[], runContext: RunContext) => {
-      return newRecordVal(
-        "STR",
-        params[0].value + params[2].value + params[1].value
-      );
-    },
-  },
-  trim: {
-    params: ["STR"],
-    safe: true,
-    lazy: false,
-    run: (params: RecordVal[], runContext: RunContext) => {
-      return newRecordVal("STR", params[0].value.trim());
     },
   },
   is_str: {
@@ -520,21 +475,6 @@ export const STDLIB: { [key: string]: STDLIBFunction } = {
       return params[0];
     },
   },
-  split_push: {
-    params: ["STR", "STR"],
-    safe: false,
-    lazy: false,
-    run: (params: RecordVal[], runContext: RunContext) => {
-      params[0].value
-        .split(params[1].value)
-        .map((substring) => newRecordVal("STR", substring))
-        .forEach((value) => {
-          runContext.record.addLast(value);
-        });
-
-      return newRecordVal("NIL", "nil");
-    },
-  },
   reverse: {
     params: [],
     safe: false,
@@ -542,6 +482,35 @@ export const STDLIB: { [key: string]: STDLIBFunction } = {
     run: (params: RecordVal[], runContext: RunContext) => {
       runContext.record.reverse();
       return newRecordVal("NIL", "nil");
+    },
+  },
+  random: {
+    params: ["NUM", "NUM"],
+    safe: true,
+    lazy: false,
+    run: (params: RecordVal[], runContext: RunContext) => {
+      const num1 = Number(params[0].value);
+      if (!Number.isInteger(num1))
+        runContext.errorReporter.pushErr(
+          runContext.lazyparams[0].token,
+          `Parameter for \`random\` function must be an integer`,
+          "400001"
+        );
+      const num2 = Number(params[1].value);
+      if (!Number.isInteger(num2))
+        runContext.errorReporter.pushErr(
+          runContext.lazyparams[1].token,
+          `Parameter for \`random\` function must be an integer`,
+          "400001"
+        );
+      if (runContext.errorReporter.hasError())
+        return runContext.errorReporter.throwAllErrs();
+      const min = Math.min(num1, num2);
+      const max = Math.max(num1, num2);
+      return newRecordVal(
+        "NUM",
+        Math.floor(Math.random() * (max - min + 1)) + min
+      );
     },
   },
 };

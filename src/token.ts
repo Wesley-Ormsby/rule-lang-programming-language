@@ -32,6 +32,8 @@ export type TT =
   | "END"
   | "AS"
   | "IF"
+  | "IMPORT"
+  | "FROM"
 
   // Logicals
   | "NOT"

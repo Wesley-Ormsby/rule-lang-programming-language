@@ -713,8 +713,19 @@ begin >> [ 1 ]
 num as x if push(x) | true !> [] 
 ```
 
+## Libraries
+RuleLand has several built-in libraries that extend functionality. Unlike standard library functions, you need to `import` these functions before you use them. You can import the full library and all functions within, or you can specify which functions to import. Regardless, imports must be at the top of the file.
+```py
+import string                             # Imports all functions from the string library
+import [ math_floor math_ceil ] from math # Imports only the math_floor and math_ceil functions from the math library
+
+begin >> [ math_floor(3.4) math_ceil(3.4) str_uppercase("Hello, World!") ]
+any as x !> print(x) # 3, 4, "HELLO, WORLD!"
+```
 
 ## Function Docs
+
+### Standard Library
 - `print(message:any) -> nil`: Displays `message` in the console.
 - `type(value:any) -> str`: Returns the type of `value` as a string.
 - `less(left:num, right:num) -> bool`: Returns `true` if `left` is less than `right`, otherwise `false`.
@@ -729,8 +740,7 @@ num as x if push(x) | true !> []
 - `div(left:num, right:num) -> num`: Returns the division of `left` by `right`.
 - `floor_div(left:num, right:num) -> num`: Returns the floor division of `left` by `right`.
 - `mod(left:num, right:num) -> num`: Returns the remainder of `left` divided by `right`.
-- `floor(value:num) -> num`: Returns the largest integer less than or equal to `value`.
-- `ceil(value:num) -> num`: Returns the smallest integer greater than or equal to `value`.
+- `random(x:num, y:num) -> num`: Returns a random integer within the range `[x,y]` such that both `x` and `y` are both inclusive.
 - `when(condition:any, true_val:any, false_val:any) -> any [LAZY]`: Evaluate and returns `true_val` if `condition` *has value*, otherwise evaluate and returns `false_val`.
 - `or(left:any, right:any) -> any [LAZY]`: Evaluates `left`. If it is true, return `left`, otherwise evaluate and return `right`.
 - `and(left:any, right:any) -> any [LAZY]`: Evaluates `left`. If it is false, return `left`, otherwise evaluate and return `right`.
@@ -740,7 +750,6 @@ num as x if push(x) | true !> []
 - `length(str:str) -> num`: Returns the length of `str`.
 - `join(left:str, right:str) -> str`: Returns the concatenation of `left` and `right`.
 - `join_with(left:str, right:str, combiner:str) -> str`: Returns `left`, `combiner`, and `right` concatenated together.
-- `trim(str:str) -> str`: Returns `str` with leading and trailing whitespace removed.
 - `is_str(value:any) -> bool`: Returns `true` if `value` is a string, otherwise `false`.
 - `is_num(value:any) -> bool`: Returns `true` if `value` is a number, otherwise `false`.
 - `is_term(value:any) -> bool`: Returns `true` if `value` is a term, otherwise `false`.
@@ -755,8 +764,46 @@ num as x if push(x) | true !> []
 - `pop() -> any [unsafe]`: Removes and returns the last value in the record. If the record is empty, returns `nil`.
 - `pop_begin() -> any [unsafe]`: Removes and returns the first value in the record. If the record is empty, returns `nil`.
 - `insert(value:any, index:num) -> any [unsafe]`: Inserts `value` at the given `index` in the record and returns it. If `index` is out of range, throws an error.
-- `split_push(str:str, delimiter:str) -> nil [unsafe]`: Splits `str` by `delimiter` and appends the resulting substrings as new values to the record. Returns `nil`.
 - `reverse() -> nil [unsafe]`: Reverses the order of values in the record and returns `nil`.
+
+### Math
+```py
+import math
+```
+- `math_pi() -> num`: Returns PI (`3.141592653589793`).
+- `math_e() -> num`: Returns Euler's number (`2.718281828459045`).
+- `math_floor(value:num) -> num`: Returns the largest integer less than or equal to `value`.
+- `math_ceil(value:num) -> num`: Returns the smallest integer greater than or equal to `value`.
+- `math_round(value:num) -> num`: Returns `value` rounded to the nearest integer.
+- `math_sqrt(value:num) -> num | nil`: Returns the square root of `value`, or `nil` if the result is impossible.
+- `math_pow(base:num, exp:num) -> num | nil`: Returns `base` raised to the exponent `exp`, or `nil` if the result is impossible.
+- `math_log(value:num) -> num | nil`: Returns the natural logarithm of `value`, or `nil` if the result is undefined.
+- `math_log2(value:num) -> num | nil`: Returns the base-2 logarithm of `value`, or `nil` if the result is undefined.
+- `math_log10(value:num) -> num | nil`: Returns the base-10 logarithm of `value`, or `nil` if the result is undefined.
+- `math_abs(value:num) -> num`: Returns the absolute value of `value`.
+- `math_sin(radians:num) -> num`: Returns the sine of a radian angle `radians`.
+- `math_cos(radians:num) -> num`: Returns the cosine of a radian angle `radians`.
+- `math_tan(radians:num) -> num`: Returns the tangent of a radian angle `radians`.
+- `math_min(val1:num val2:num) -> num`: Returns the minimum value of `val1` and `val2`.
+- `math_max(val1:num val2:num) -> num`: Returns the maximum value of `val1` and `val2`.
+### String
+```py
+import string
+```
+- `str_lowercase(str:str) -> str`: Returns `str` converted to lowercase.
+- `str_uppercase(str:str) -> str`: Returns `str` converted to uppercase.
+- `str_trim(str:str) -> str`: Returns `str` with leading and trailing whitespace removed.
+- `str_split(str:str, delimiter:str) -> nil [unsafe]`: Splits `str` by `delimiter` and appends the resulting substrings as new values to the record. Returns `nil`.
+- `str_get_char(str:str index:num) -> str`: Gets the character at at `index` within `str` and returns it as a 1-character string.
+- `str_substr(str:str i:num j:num) -> str`: Returns the substring of `str`, all the characters from index `i` to `j` inclusive.
+- `str_starts_with(str:str start:str) -> bool`: Returns `true` if `str` starts with the string `start`, otherwise `false`.
+- `str_ends_with(str:str end:str) -> bool`: Returns `true` if `str` ends with the string `end`, otherwise `false`.
+- `str_contains(str:str substr:str) -> bool`: Returns `true` if `str` contains the substring `substr`, otherwise `false`.
+- `str_index_of(str:str substr:str) -> num`: Returns the index of the start of the first occurrence of `substr` within `str`, or `-1` if the string does not include `substr`.
+- `str_last_index_of(str:str substr:str) -> num`: Returns the index of the start of the last occurrence of `substr` within `str`, or `-1` if the string does not include `substr`.
+- `str_replace(str:str searchStr:str replaceStr:str) -> str`: Returns `str` with the first occurrence of `searchStr` replaced with `replaceStr`.
+- `str_char_code(char:str) -> num`: Returns the unicode number representation of the 1-character string `char`.
+- `str_char_code(charCode:num) -> str`: Returns the text representation of the unicode code `charCode` as a string.
 
 ## Error Codes
 ### Lexing (Scanning) errors
@@ -796,6 +843,14 @@ num as x if push(x) | true !> []
 - `E200027`: Expected expression after \`(\`
 - `E200028`: Expected \`)\` to end expression
 - `E200029`: Expected expression after \`myExpressionOperator\` expression operator
+- `E200030`: Expected library name or `[` in import statement
+- `E200031`: Expected `]` to close function group in import statement
+- `E200032`: Expected `from` after function group in import statement
+- `E200033`: Expected library name after `from` in import statement
+- `E200034`: Multiple imports to library \`libraryName\`
+- `E200035`: Library \`libraryName\` does not exist
+- `E200036`: Function \`importedFunctionName\` not found in \`myLibrary` library
+- `E200037`: Duplicate function \`myFunction\` import
 ### Runtime Errors
 - `E300001`: Left operand of \`myExpressionOperator\` operator must be a number
 - `E300002`: Right operand of \`myExpressionOperator\` operator must be a number
@@ -803,6 +858,9 @@ num as x if push(x) | true !> []
 - `E300004`: Function \`myCalledFunction\` is not a safe function and cannot be used in expressions or replacing value scopes (\`-> [ ... ]\`)
 - `E300005`: Invalid number of parameters, function \`myCalledFunction\` must have x parameters
 - `E300006`: Parameter x of \`myCalledFunction\` function must be a \`parameterType\` type
-### Standard Library Errors
+- `E300007`: Variable \`myVariable\` is not defined
+### Library Errors
 - `E400001`: Parameter for \`myCalledFunction\` function must be an integer
 - `E400002`: \`x\` is out of range for \`myCalledFunction\` function, the record has y values
+- `E400003`: `Index \`index\` is out of range for string
+- `E400004`: Parameter for \`myCalledFunction\` function must be a 1-character string
