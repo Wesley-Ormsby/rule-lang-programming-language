@@ -29,6 +29,7 @@ export class Parser {
   private tokenList: Token[];
   private ast: Node | null;
   private imports: Library;
+  private defs: Defs;
   private errReporter: ErrorReporter;
   private pos: number;
 
@@ -41,6 +42,7 @@ export class Parser {
     let thrownErrors = false;
     try {
       this.parseImports(delayedErrors);
+      this.parseDefs();
       this.ast = this.parseRuleScope(false);
     } catch (error: unknown) {
       if (error instanceof ParseError) {
@@ -77,12 +79,12 @@ export class Parser {
     );
   }
 
-  public getAST(): Node | null {
-    return this.ast;
-  }
-
-  public getImports(): Library {
-    return this.imports;
+  public getParserResults(): ParserResults {
+    return {
+      ast: this.ast,
+      imports: this.imports,
+      defs: this.defs,
+    };
   }
 
   private next(): Token {
@@ -689,7 +691,7 @@ export class Parser {
           });
         } else if (LIBRARIES.hasOwnProperty(libraryToken.lexeme)) {
           Object.assign(this.imports, LIBRARIES[libraryToken.lexeme]);
-          importedLibs.add(libraryToken.lexeme)
+          importedLibs.add(libraryToken.lexeme);
         } else {
           delayedErrors.push({
             token: libraryToken,
@@ -742,7 +744,7 @@ export class Parser {
                 });
               } else {
                 this.imports[fn.lexeme] = lib[fn.lexeme];
-                addedFunctionSet.add(fn.lexeme)
+                addedFunctionSet.add(fn.lexeme);
               }
             } else {
               delayedErrors.push({
@@ -752,7 +754,7 @@ export class Parser {
               });
             }
           }
-          importedLibs.add(libraryToken.lexeme)
+          importedLibs.add(libraryToken.lexeme);
         } else {
           delayedErrors.push({
             token: libraryToken,
@@ -761,6 +763,37 @@ export class Parser {
           });
         }
       }
+    }
+  }
+
+  private parseDefs() {
+    this.defs = {};
+    while (this.peek("DEF")) {
+      this.next();
+      const identifier = this.expect(
+        "IDENTIFIER",
+        "Expected identifier for global variable name",
+        "200005"
+      );
+      if (this.defs.hasOwnProperty(identifier.lexeme))
+        return this.errReporter.throwErr(
+          this.next(),
+          `Duplicate global variable, \`${identifier.lexeme}\` has already been defined`,
+          "200040"
+        );
+      this.expect(
+        "ASSIGN",
+        "Expected `:=` for global variable definition",
+        "200038"
+      );
+      const val = this.parseValueOrFunction(false);
+      if (val == null)
+        return this.errReporter.throwErr(
+          this.next(),
+          "Expected value for global variable definition",
+          "200039"
+        );
+      this.defs[identifier.lexeme] = val;
     }
   }
 
@@ -803,6 +836,8 @@ ${spacer}${exp.name}`;
   }
 }
 
+export type ParserResults = { ast: Node | null; imports: Library; defs: Defs };
+export type Defs = Record<string, ValueOrFunctionNode>;
 interface RecursivePatternReturn {
   patternValues: PatternNode[];
   as: Array<string | null>;

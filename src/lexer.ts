@@ -25,7 +25,8 @@ const KEYWORDS: Record<string, TT> = {
   as: "AS",
   if: "IF",
   import: "IMPORT",
-  from: "FROM"
+  from: "FROM",
+  def: "DEF",
 };
 
 export class Lexer {
@@ -38,7 +39,7 @@ export class Lexer {
   private tokenList: Token[];
   private errorToken: Token | false;
   private pos: number;
-  private errReporter: ErrorReporter
+  private errReporter: ErrorReporter;
 
   constructor(source: string, reporter: ErrorReporter) {
     this.source = source;
@@ -50,7 +51,7 @@ export class Lexer {
     this.tokenList = [];
     this.errorToken = false;
     this.pos = 0;
-    this.errReporter = reporter
+    this.errReporter = reporter;
     this.lexSource();
   }
 
@@ -66,12 +67,16 @@ export class Lexer {
     }
     // If there was an invalid token at the end of the file
     if (this.errorToken) {
-      this.errReporter.pushErr(this.updateErrorToken(), "Unexpected token", "100001");
+      this.errReporter.pushErr(
+        this.updateErrorToken(),
+        "Unexpected token",
+        "100001"
+      );
     }
     if (this.errReporter.hasError()) {
-        this.errReporter.throwAllErrs()
-        return;
-      }
+      this.errReporter.throwAllErrs();
+      return;
+    }
 
     // Push EOF token
     this.tokenList.push({
@@ -92,7 +97,11 @@ export class Lexer {
   // Add a token to the token list
   private addToken(tokenType: TT) {
     if (this.errorToken) {
-      this.errReporter.pushErr(this.updateErrorToken(), "Unexpected token", "100001");
+      this.errReporter.pushErr(
+        this.updateErrorToken(),
+        "Unexpected token",
+        "100001"
+      );
       this.errorToken = false;
     }
     this.tokenList.push({
@@ -211,6 +220,14 @@ export class Lexer {
           this.addToken("EQUAL_TO");
         }
         break;
+      case ":":
+        this.consume();
+        if (this.peekEq("=")) {
+          this.consumeAdd("ASSIGN");
+        } else {
+          this.updateErrorToken();
+        }
+        break;
       case "-":
         this.consume();
         if (this.peekEq(">")) {
@@ -226,7 +243,11 @@ export class Lexer {
       case " ":
       case "  ":
         if (this.errorToken) {
-          this.errReporter.pushErr(this.updateErrorToken(), "Unexpected token", "100001");
+          this.errReporter.pushErr(
+            this.updateErrorToken(),
+            "Unexpected token",
+            "100001"
+          );
           this.errorToken = false;
         }
         this.charStart += 1;
@@ -236,7 +257,11 @@ export class Lexer {
       // Newlines
       case "\n":
         if (this.errorToken) {
-          this.errReporter.pushErr(this.updateErrorToken(), "Unexpected token", "100001");
+          this.errReporter.pushErr(
+            this.updateErrorToken(),
+            "Unexpected token",
+            "100001"
+          );
           this.errorToken = false;
         }
         this.charStart = 1;
@@ -277,7 +302,11 @@ export class Lexer {
           }
         }
         if (this.charsToScan() === 0) {
-          this.errReporter.throwErr(errorToken, "Unterminated string", "100002");
+          this.errReporter.throwErr(
+            errorToken,
+            "Unterminated string",
+            "100002"
+          );
           return;
         }
         this.consume();

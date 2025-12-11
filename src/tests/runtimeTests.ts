@@ -153,6 +153,14 @@ test(
   ["300007"]
 );
 
+// Defs tests
+test(
+  "Defs",
+  `def x := push(3) def z := "4" def y := to_num(z) begin >> [x y z]`,
+  [3, 3, 4, "4"],
+  []
+);
+
 /* TESTING RESULTS */
 test(`Pushing match and chaining`, `begin >> [1 2] >> [3 4]`, [1, 2, 3, 4], []);
 test(

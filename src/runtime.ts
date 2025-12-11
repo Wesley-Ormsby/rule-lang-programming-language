@@ -9,6 +9,7 @@ import {
   ValueScopeNode,
   ValueType,
 } from "./node.js";
+import { Defs } from "./parser.js";
 import { RecordTape, RecordVal } from "./record.js";
 import { StandardLibrary } from "./stdlib.js";
 import { Token } from "./token.js";
@@ -33,7 +34,12 @@ export class Runtime {
     return this.record.getRecord();
   }
 
-  constructor(ast: Node | null, imports: Library, reporter: ErrorReporter) {
+  constructor(
+    ast: Node | null,
+    imports: Library,
+    defs: Defs,
+    reporter: ErrorReporter
+  ) {
     this.record = new RecordTape();
     this.errReporter = reporter;
 
@@ -42,6 +48,19 @@ export class Runtime {
     Object.assign(this.nameSpace, StandardLibrary);
 
     let varMap: VarMap = {};
+    // Evaluate defs and add them to the map
+    for (let key of Object.keys(defs)) {
+      const result = evaluateValVarFun(
+        defs[key],
+        varMap,
+        this.record,
+        false,
+        this.errReporter,
+        this.nameSpace
+      );
+      // We know defs are unique (from the parser)
+      if(result != null) varMap[key] = [result];
+    }
 
     if (ast != null && ast.kind == "RuleScope") {
       this.evaluateRuleScope(ast, varMap);

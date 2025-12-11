@@ -14,6 +14,7 @@ export type TT =
   | "RIGHT_PREN"
   | "LEFT_SQUARE"
   | "RIGHT_SQUARE"
+  | "ASSIGN"
 
   // Matches
   | "REPLACE_MATCH"
@@ -34,6 +35,7 @@ export type TT =
   | "IF"
   | "IMPORT"
   | "FROM"
+  | "DEF"
 
   // Logicals
   | "NOT"

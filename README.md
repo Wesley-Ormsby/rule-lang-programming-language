@@ -736,6 +736,18 @@ begin >> [ math_floor(3.4) math_ceil(3.4) str_uppercase("Hello, World!") ]
 any as x !> print(x) # 3, 4, "HELLO, WORLD!"
 ```
 
+## Global Variables
+Global variables can be defined at the top of a file below imports.
+```py
+import [ math_pi ] from math
+
+def myVarName := 4
+def text := "Hello, World"
+def pi := math_pi()
+
+begin >> [ myVarName text pi ] # [ 4, "Hello, World", 3.141592653589793 ]
+```
+
 ## Function Docs
 
 ### Standard Library
@@ -827,7 +839,7 @@ import string
 - `E200002`: Expected \`[\` to start the rule scope
 - `E200003`: Expected \`]\` to end the rule scope
 - `E200004`: Expected \`]\` to end the value scope
-- `E200005`: ... removed ...
+- `E200005`: Expected identifier for global variable name
 - `E200006`: Expected value or scope after match operator \`myMatchOperator\``
 - `E200007`: 
    - Replacing match operator (\`->\`) is invalid for the \`begin\` pattern
@@ -864,6 +876,9 @@ import string
 - `E200035`: Library \`libraryName\` does not exist
 - `E200036`: Function \`importedFunctionName\` not found in \`myLibrary` library
 - `E200037`: Duplicate function \`myFunction\` import
+- `E200038`: Expected `:=` for global variable definition
+- `E200039`: Expected value for global variable definition
+- `E200040`: Duplicate global variable, \`myVar\` has already been defined
 ### Runtime Errors
 - `E300001`: Left operand of \`myExpressionOperator\` operator must be a number
 - `E300002`: Right operand of \`myExpressionOperator\` operator must be a number

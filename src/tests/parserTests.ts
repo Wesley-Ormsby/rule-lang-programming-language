@@ -81,6 +81,27 @@ export function runParserTests() {
     ["200037", "200035", "200012"]
   );
 
+  // Defs
+  test("Expected identifier for global variable name", `def 8`, [], ["200005"]);
+  test(
+    "Duplicate global variable, \`myVar\` has already been defined",
+    `def x := 7 def x := 6`,
+    [],
+    ["200040"]
+  );
+  test(
+    "Expected `:=` for global variable definition",
+    `def x 8`,
+    [],
+    ["200038"]
+  );
+  test(
+    "Expected value for global variable definition",
+    `def x := &`,
+    [],
+    ["200039"]
+  );
+
   test("Expected `[` to start the rule scope", `begin => 7`, [], ["200002"]);
   test(
     "Expected `]` to end the rule scope",
