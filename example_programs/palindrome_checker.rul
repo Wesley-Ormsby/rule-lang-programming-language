@@ -1,8 +1,9 @@
+import string
+
 begin 
-    >> "racecar"
-    >> Word_Before_This
-str as word Word_Before_This
-    !> split_push(word "")
+    >> [ CheckPalidrome "racecar" ]
+CheckPalidrome str as word
+    !> str_split(word "")
     !> reverse()
     => [
         str str as (part1 part2) -> join(part1 part2)

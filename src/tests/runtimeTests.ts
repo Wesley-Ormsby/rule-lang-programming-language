@@ -105,9 +105,50 @@ test(
   [],
   ["300006"]
 );
+
+// Scope tests
 test(
   "Variable \`myVariable\` is not defined",
-  `begin >> add( add 1 )`,
+  `begin >> [1 2] => [ num as x !> x ] >> x`,
+  [],
+  ["300007"]
+);
+  test(
+    "Variable \`myVariable\` is not defined [with a value scope]",
+    `begin >> [ my_var ]`,
+    [],
+    ["300007"]
+  );
+    test(
+    "Variable \`myVariable\` is not defined",
+    `begin >> my_var`,
+    [],
+    ["300007"]
+  );
+  test(
+  `Scoped variables`,
+  `begin >> [MakeVar 1 2]
+   MakeVar num as x num as y => [
+      begin >> [MakeVar 3 4]
+      MakeVar num as x num as z => [
+        begin >> 1
+        1 if x = 3 >> [x add(z add(x 1))]
+      ]
+      end >> [x y]
+   ]`,
+  [3, 8, 1, 2],
+  []
+);
+  test(
+  `Scoped variables [error]`,
+  `begin >> [MakeVar 1 2]
+   MakeVar num as x num as y => [
+      begin >> [MakeVar 3 4]
+      MakeVar num as x num as z => [
+        begin >> 1
+      ]
+      end >> z
+   ]`,
   [],
   ["300007"]
 );

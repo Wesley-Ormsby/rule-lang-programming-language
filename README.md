@@ -578,6 +578,19 @@ num as x | "one" >> x # Error!
 "one" | (num as x) >> x # Error!
 "one" | num as x >> x # Fine: ("one" | num) as x
 ```
+Variables are scoped, so when entering a new value scope, previous variables are still available. Once the scope is exited, the variable disappears.
+```py
+begin >> [MakeVar 1 2]
+
+MakeVar num as x num as y => [ # x=1 y=2
+   begin >> [MakeVar 3 4]
+   MakeVar num as x num as z => [ # x=3 z=4
+        begin >> 1
+        1 if x = 3 >> [x y z] # [ 3, 2, 4]
+   ] # Exit inner scope, so x=3 and z=4 are no longer available
+   end >> [x y] # x=1 y=2
+]
+```
 #### Conditions
 Conditions are an optional addition to **patterns** to make them more terse and concise. Conditions are checked after a  **pattern value** match occurs. If the condition evaluates to `true`, meaning it *has value*, a match occurs, otherwise, the match does not happen.
 - Numbers *have value* when they are non-zero
@@ -814,7 +827,7 @@ import string
 - `E200002`: Expected \`[\` to start the rule scope
 - `E200003`: Expected \`]\` to end the rule scope
 - `E200004`: Expected \`]\` to end the value scope
-- `E200005`: Variable \`myVariableName\` in not defined in the scope's pattern
+- `E200005`: ... removed ...
 - `E200006`: Expected value or scope after match operator \`myMatchOperator\``
 - `E200007`: 
    - Replacing match operator (\`->\`) is invalid for the \`begin\` pattern

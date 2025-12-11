@@ -145,12 +145,6 @@ export class Parser {
       while (true) {
         const value = this.parseValueOrFunction(true);
         if (value === null) break;
-        if (value.kind == "Variable" && !variables.includes(value.name))
-          throw new ParseError(
-            value.token,
-            `Variable \`${value.name}\` in not defined in the scope's pattern`,
-            "200005"
-          );
         scope.push(value);
       }
       this.expect(
@@ -165,12 +159,6 @@ export class Parser {
           this.next(),
           `Expected value or scope after match operator \`${operator.lexeme}\``,
           "200006"
-        );
-      if (value.kind == "Variable" && !variables.includes(value.name))
-        throw new ParseError(
-          value.token,
-          `Variable \`${value.name}\` in not defined in the scope's pattern`,
-          "200005"
         );
       scope.push(value);
     }

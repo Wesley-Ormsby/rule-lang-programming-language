@@ -7,7 +7,7 @@ export interface RecordVal {
 }
 
 // THis is a dual array dequeue to make pushing/popping from either side faster
-export class RecordTap {
+export class RecordTape {
   private front: RecordVal[];
   private back: RecordVal[];
 

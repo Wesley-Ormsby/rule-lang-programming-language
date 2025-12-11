@@ -9,13 +9,13 @@ import {
   ValueScopeNode,
   ValueType,
 } from "./node.js";
-import { RecordTap, RecordVal } from "./record.js";
+import { RecordTape, RecordVal } from "./record.js";
 import { StandardLibrary } from "./stdlib.js";
 import { Token } from "./token.js";
 import { Library, ModuleFunction } from "./utils/libraryUtils.js";
 
 export interface RunContext {
-  record: RecordTap;
+  record: RecordTape;
   variables: VarMap;
   mustBeSafe: boolean;
   lazyparams: ValueOrFunctionNode[];
@@ -25,7 +25,7 @@ export interface RunContext {
 }
 
 export class Runtime {
-  private record: RecordTap;
+  private record: RecordTape;
   private errReporter: ErrorReporter;
   private nameSpace: Library;
 
@@ -34,37 +34,39 @@ export class Runtime {
   }
 
   constructor(ast: Node | null, imports: Library, reporter: ErrorReporter) {
-    this.record = new RecordTap();
+    this.record = new RecordTape();
     this.errReporter = reporter;
 
     // Add standard library functions to namespace
-    this.nameSpace = imports
+    this.nameSpace = imports;
     Object.assign(this.nameSpace, StandardLibrary);
 
+    let varMap: VarMap = {};
+
     if (ast != null && ast.kind == "RuleScope") {
-      this.evaluateRuleScope(ast);
+      this.evaluateRuleScope(ast, varMap);
     }
   }
 
   private evaluate(
     node: Node | null,
-    pointer: number = 0,
-    variables: VarMap = {}
+    variables: VarMap,
+    pointer: number = 0
   ): void {
     if (node === null) return;
     if (node.kind == "RuleScope") {
-      this.evaluateRuleScope(node);
+      this.evaluateRuleScope(node, variables);
     } else if (node.kind == "ValueScope") {
-      this.evaluateValueScope(node, pointer, variables);
+      this.evaluateValueScope(node, variables, pointer);
     }
   }
 
-  private evaluateRuleScope(ruleScope: RuleScopeNode): void {
+  private evaluateRuleScope(ruleScope: RuleScopeNode, variables: VarMap): void {
     // Begin rules
     if (ruleScope.begin !== null) {
       for (let scope of ruleScope.begin) {
         if (this.errReporter.hasError()) return;
-        this.evaluate(scope);
+        this.evaluate(scope, variables);
       }
     }
 
@@ -85,10 +87,14 @@ export class Runtime {
             const patternMatches = this.testPatternValueMatch(pattern, pointer);
             if (!patternMatches) continue downLoop;
             // Pattern matches, so get variables and remove the match from the record
-            let variables: VarMap = {};
             as.forEach((name: string | null, index: number) => {
               if (name !== null) {
-                variables[name] = this.record.get(pointer + index) as RecordVal;
+                const val = this.record.get(pointer + index) as RecordVal;
+                if (variables.hasOwnProperty(name)) {
+                  variables[name].push(val);
+                } else {
+                  variables[name] = [val];
+                }
               }
             });
             // Check if the expression matches
@@ -98,17 +104,43 @@ export class Runtime {
                 variables
               );
               if (expressionEval === null) return; // Error
-              if (!hasValue(expressionEval)) continue downLoop;
+              if (!hasValue(expressionEval)) {
+                // Remove variables from scope
+                as.forEach((name: string | null, _: number) => {
+                  if (name !== null) {
+                    if (variables[name].length == 1) {
+                      delete variables[name];
+                    } else {
+                      variables[name].pop();
+                    }
+                  }
+                });
+                continue downLoop;
+              }
             }
             // Everything matched, so run the scope and re-try matching
             // First, remove the matched values from the record
             for (let i = 0; i < as.length; i++) {
               this.record.remove(pointer); // since we are removing items, the pointer always points to the removed item
             }
+
+            // Run the scope
             for (var scope of rule.scopes) {
-              this.evaluate(scope, pointer, variables);
+              this.evaluate(scope, variables, pointer);
               if (this.errReporter.hasError()) return;
             }
+
+            // Remove local variables
+            as.forEach((name: string | null, _: number) => {
+              if (name !== null) {
+                if (variables[name].length == 1) {
+                  delete variables[name];
+                } else {
+                  variables[name].pop();
+                }
+              }
+            });
+
             continue matchingLoop;
           }
         }
@@ -120,7 +152,7 @@ export class Runtime {
     if (ruleScope.end !== null) {
       for (var scope of ruleScope.end) {
         if (this.errReporter.hasError()) return;
-        this.evaluate(scope);
+        this.evaluate(scope, variables);
       }
     }
   }
@@ -255,8 +287,8 @@ export class Runtime {
 
   private evaluateValueScope(
     valueScope: ValueScopeNode,
-    pointer: number = 0,
-    variables: VarMap = {}
+    variables: VarMap,
+    pointer: number = 0
   ): void {
     let toAddToRecord: RecordVal[] = [];
     for (let valueVarOrFunction of valueScope.scope) {
@@ -288,7 +320,7 @@ export class Runtime {
   }
 }
 
-export type VarMap = { [key: string]: RecordVal };
+export type VarMap = Record<string, RecordVal[]>;
 
 export function newRecordVal(type: ValueType, value: any) {
   return { type: type, value: String(value) };
@@ -316,7 +348,7 @@ export function toRecordVal(val: ValueNode): RecordVal {
 export function evaluateValVarFun(
   value: ValueOrFunctionNode,
   variables: VarMap,
-  record: RecordTap,
+  record: RecordTape,
   mustBeSafe: boolean,
   errorReporter: ErrorReporter,
   nameSpace: Library
@@ -324,10 +356,14 @@ export function evaluateValVarFun(
   if (value.kind == "Value") {
     return toRecordVal(value);
   } else if (value.kind == "Variable") {
-    if(!variables.hasOwnProperty(value.name)) {
-      return errorReporter.throwErr(value.token, `Variable \`${value.name}\` is not defined`, "300007")
+    if (!variables.hasOwnProperty(value.name)) {
+      return errorReporter.throwErr(
+        value.token,
+        `Variable \`${value.name}\` is not defined`,
+        "300007"
+      );
     }
-    return variables[value.name];
+    return variables[value.name][variables[value.name].length - 1];
   } else {
     const params = value.params;
     const name = value.name;
@@ -359,7 +395,7 @@ export function evaluateValVarFun(
       lazyparams: value.params,
       errorToken,
       errorReporter,
-      nameSpace
+      nameSpace,
     };
     if (funObj.lazy) {
       // Lazy run

@@ -89,24 +89,12 @@ export function runParserTests() {
     ["200003"]
   );
   test("Unexpected token", `begin >> [ 8 ] &`, [], ["200001"]);
-  test(
-    "Variable `name` in not defined in the scope's pattern",
-    `begin >> my_var`,
-    [],
-    ["200005"]
-  );
   test("Expected `]` to end the value scope", `begin >> [ 1`, [], ["200004"]);
   test(
     "Expected value or scope after match operator",
     `begin >> &`,
     [],
     ["200006"]
-  );
-  test(
-    "Variable `name` in not defined in the scope's pattern [with a value scope]",
-    `begin >> [ my_var ]`,
-    [],
-    ["200005"]
   );
   test(
     "Replacing match operator (`->`) is invalid for the `begin` pattern",
