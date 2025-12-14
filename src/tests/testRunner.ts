@@ -27,7 +27,7 @@ export class TestErrorReporter
   }
 }
 
-export function test(
+export async function test(
   label: string,
   source: string,
   simplifiedResult: Array<number | string | boolean | Term | null>,
@@ -38,7 +38,7 @@ export function test(
   testsRun += 1;
   let result: RecordVal[] | null = null;
   try {
-    result = run(source, errReporter);
+    result = await run(source, errReporter);
   } catch (e) {
     console.log(
       "========================================================================"

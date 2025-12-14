@@ -1,6 +1,6 @@
 import { Term, test } from "./testRunner.js";
 
-export function runRuntimeTests() {
+export async function runRuntimeTests() {
   // Imports
 test(
   "Importing multiple functions from library [importing only some functions from library]",

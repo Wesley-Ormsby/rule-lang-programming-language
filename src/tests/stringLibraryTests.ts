@@ -1,6 +1,6 @@
-import { Term, test } from "./testRunner.js";
+import { test } from "./testRunner.js";
 
-export function runStringLibraryTests() {
+export async function runStringLibraryTests() {
   test(
     `str_trim`,
     `import [str_trim] from string begin >> [ str_trim(" one ") str_trim("1") ]`,

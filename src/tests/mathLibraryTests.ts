@@ -1,6 +1,6 @@
 import { test } from "./testRunner.js";
 
-export function runMathLibraryTests() {
+export async function runMathLibraryTests() {
   test(`math_pi`, `import [math_pi] from math begin >> math_pi()`, [Math.PI], []);
 test(`math_floor`, `import [math_floor] from math begin >> [ math_floor(0.7) math_floor(1.0)]`, [0, 1], []);
 test(`math_ceil`, `import [math_ceil] from math begin >> [ math_ceil(0.7) math_ceil(1.0)]`, [1, 1], []);

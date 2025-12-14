@@ -1,6 +1,6 @@
 import { test } from "./testRunner.js";
 
-export function runParserTests() {
+export async function runParserTests() {
   // Imports
   test(
     "Library `importedLibrary` does not exist [for importing full library]",

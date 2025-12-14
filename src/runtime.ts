@@ -23,12 +23,16 @@ export interface RunContext {
   errorToken: Token;
   errorReporter: ErrorReporter;
   nameSpace: Library;
+  baseDirectory: string;
 }
 
 export class Runtime {
   private record: RecordTape;
   private errReporter: ErrorReporter;
   private nameSpace: Library;
+  private defs: Defs;
+  private ast: Node | null;
+  private baseDirectory: string;
 
   public getRecord(): RecordVal[] {
     return this.record.getRecord();
@@ -38,7 +42,8 @@ export class Runtime {
     ast: Node | null,
     imports: Library,
     defs: Defs,
-    reporter: ErrorReporter
+    reporter: ErrorReporter,
+    baseDirectory: string
   ) {
     this.record = new RecordTape();
     this.errReporter = reporter;
@@ -47,45 +52,52 @@ export class Runtime {
     this.nameSpace = imports;
     Object.assign(this.nameSpace, StandardLibrary);
 
+    this.defs = defs
+    this.ast = ast;
+    this.baseDirectory = baseDirectory
+  }
+
+  public async init() {
     let varMap: VarMap = {};
     // Evaluate defs and add them to the map
-    for (let key of Object.keys(defs)) {
-      const result = evaluateValVarFun(
-        defs[key],
+    for (let key of Object.keys(this.defs)) {
+      const result = await evaluateValVarFun(
+        this.defs[key],
         varMap,
         this.record,
         false,
         this.errReporter,
-        this.nameSpace
+        this.nameSpace,
+        this.baseDirectory,
       );
       // We know defs are unique (from the parser)
       if(result != null) varMap[key] = [result];
     }
 
-    if (ast != null && ast.kind == "RuleScope") {
-      this.evaluateRuleScope(ast, varMap);
+    if (this.ast != null && this.ast.kind == "RuleScope") {
+      await this.evaluateRuleScope(this.ast, varMap);
     }
   }
 
-  private evaluate(
+  private async evaluate(
     node: Node | null,
     variables: VarMap,
     pointer: number = 0
-  ): void {
+  ): Promise<void> {
     if (node === null) return;
     if (node.kind == "RuleScope") {
-      this.evaluateRuleScope(node, variables);
+      await this.evaluateRuleScope(node, variables);
     } else if (node.kind == "ValueScope") {
-      this.evaluateValueScope(node, variables, pointer);
+      await this.evaluateValueScope(node, variables, pointer);
     }
   }
 
-  private evaluateRuleScope(ruleScope: RuleScopeNode, variables: VarMap): void {
+  private async evaluateRuleScope(ruleScope: RuleScopeNode, variables: VarMap): Promise<void> {
     // Begin rules
     if (ruleScope.begin !== null) {
       for (let scope of ruleScope.begin) {
         if (this.errReporter.hasError()) return;
-        this.evaluate(scope, variables);
+        await this.evaluate(scope, variables);
       }
     }
 
@@ -103,7 +115,7 @@ export class Runtime {
             const expression: ExprNode | null = rule.expression;
             // Check if the pattern matches
             if (as.length > this.record.size() - pointer) continue downLoop;
-            const patternMatches = this.testPatternValueMatch(pattern, pointer);
+            const patternMatches = await this.testPatternValueMatch(pattern, pointer);
             if (!patternMatches) continue downLoop;
             // Pattern matches, so get variables and remove the match from the record
             as.forEach((name: string | null, index: number) => {
@@ -118,7 +130,7 @@ export class Runtime {
             });
             // Check if the expression matches
             if (expression !== null) {
-              const expressionEval = this.evaluateExpression(
+              const expressionEval = await this.evaluateExpression(
                 expression,
                 variables
               );
@@ -145,7 +157,7 @@ export class Runtime {
 
             // Run the scope
             for (var scope of rule.scopes) {
-              this.evaluate(scope, variables, pointer);
+              await this.evaluate(scope, variables, pointer);
               if (this.errReporter.hasError()) return;
             }
 
@@ -171,12 +183,12 @@ export class Runtime {
     if (ruleScope.end !== null) {
       for (var scope of ruleScope.end) {
         if (this.errReporter.hasError()) return;
-        this.evaluate(scope, variables);
+        await this.evaluate(scope, variables);
       }
     }
   }
 
-  private testPatternValueMatch(patVal: PatternNode, pointer: number): boolean {
+  private async testPatternValueMatch(patVal: PatternNode, pointer: number): Promise<boolean> {
     let currentRecordValue = this.record.get(pointer);
     if (currentRecordValue == null) return false; // This should never run, if it does, pointer is out of sync
     if (patVal.kind == "Value") {
@@ -200,14 +212,14 @@ export class Runtime {
       }
     } else if (patVal.kind == "PatternOr") {
       return (
-        this.testPatternValueMatch(patVal.left, pointer) ||
-        this.testPatternValueMatch(patVal.right, pointer)
+        await this.testPatternValueMatch(patVal.left, pointer) ||
+        await this.testPatternValueMatch(patVal.right, pointer)
       );
     } else if (patVal.kind == "PatternNot") {
-      return !this.testPatternValueMatch(patVal.right, pointer);
+      return !(await this.testPatternValueMatch(patVal.right, pointer));
     } else {
       for (var patternValue of patVal.patterns) {
-        let test = this.testPatternValueMatch(patternValue, pointer);
+        let test = await this.testPatternValueMatch(patternValue, pointer);
         if (!test) return false;
         pointer += 1;
       }
@@ -215,25 +227,26 @@ export class Runtime {
     }
   }
 
-  private evaluateExpression(
+  private async evaluateExpression(
     exp: ExprNode,
     variables: VarMap
-  ): RecordVal | null {
+  ): Promise<RecordVal | null> {
     if (
       exp.kind == "Value" ||
       exp.kind == "Variable" ||
       exp.kind == "Function"
     ) {
-      return evaluateValVarFun(
+      return await evaluateValVarFun(
         exp,
         variables,
         this.record,
         true,
         this.errReporter,
-        this.nameSpace
+        this.nameSpace,
+        this.baseDirectory,
       );
     } else if (exp.kind == "BinaryExpr") {
-      let left = this.evaluateExpression(exp.left, variables);
+      let left = await this.evaluateExpression(exp.left, variables);
       if (left === null) return null;
       switch (exp.operator) {
         case "GREATER_THAN":
@@ -246,7 +259,7 @@ export class Runtime {
               `Left operand of \`${exp.token.lexeme}\` operator must be a number`,
               "300001"
             );
-          let right = this.evaluateExpression(exp.right, variables);
+          let right = await this.evaluateExpression(exp.right, variables);
           if (right === null) return null;
           if (right.type !== "NUM")
             return this.errReporter.throwErr(
@@ -269,16 +282,16 @@ export class Runtime {
         default:
           if (exp.operator === "OR") {
             if (hasValue(left)) return left;
-            let right = this.evaluateExpression(exp.right, variables);
+            let right = await this.evaluateExpression(exp.right, variables);
             if (right === null) return null;
             return right;
           } else if (exp.operator === "AND") {
             if (!hasValue(left)) return left;
-            let right = this.evaluateExpression(exp.right, variables);
+            let right = await this.evaluateExpression(exp.right, variables);
             if (right === null) return null;
             return right;
           } else {
-            let right = this.evaluateExpression(exp.right, variables);
+            let right = await this.evaluateExpression(exp.right, variables);
             if (right === null) return null;
             if (exp.operator === "EQUAL_TO") {
               return newRecordVal(
@@ -295,7 +308,7 @@ export class Runtime {
       }
     } else {
       // Unary Expression
-      let right: RecordVal | null = this.evaluateExpression(
+      let right: RecordVal | null = await this.evaluateExpression(
         exp.right,
         variables
       );
@@ -304,20 +317,21 @@ export class Runtime {
     }
   }
 
-  private evaluateValueScope(
+  private async evaluateValueScope(
     valueScope: ValueScopeNode,
     variables: VarMap,
     pointer: number = 0
-  ): void {
+  ): Promise<void> {
     let toAddToRecord: RecordVal[] = [];
     for (let valueVarOrFunction of valueScope.scope) {
-      let value: RecordVal | null = evaluateValVarFun(
+      let value: RecordVal | null = await evaluateValVarFun(
         valueVarOrFunction,
         variables,
         this.record,
         valueScope.operator === "REPLACE_MATCH",
         this.errReporter,
-        this.nameSpace
+        this.nameSpace,
+        this.baseDirectory
       );
       if (value === null) return;
       if (!valueVarOrFunction.push) continue;
@@ -364,14 +378,15 @@ export function toRecordVal(val: ValueNode): RecordVal {
     value: val.value,
   };
 }
-export function evaluateValVarFun(
+export async function evaluateValVarFun(
   value: ValueOrFunctionNode,
   variables: VarMap,
   record: RecordTape,
   mustBeSafe: boolean,
   errorReporter: ErrorReporter,
-  nameSpace: Library
-): RecordVal | null {
+  nameSpace: Library,
+  baseDirectory: string
+): Promise<RecordVal | null> {
   if (value.kind == "Value") {
     return toRecordVal(value);
   } else if (value.kind == "Variable") {
@@ -415,20 +430,22 @@ export function evaluateValVarFun(
       errorToken,
       errorReporter,
       nameSpace,
+      baseDirectory
     };
     if (funObj.lazy) {
       // Lazy run
-      return funObj.run([], runtimeContext);
+      return await funObj.run([], runtimeContext);
     } else {
       const runparams: RecordVal[] = [];
       for (let [index, param] of params.entries()) {
-        let newparam = evaluateValVarFun(
+        let newparam = await evaluateValVarFun(
           param,
           variables,
           record,
           mustBeSafe,
           errorReporter,
-          nameSpace
+          nameSpace,
+          baseDirectory
         );
         if (newparam === null) return null;
         if (
@@ -443,7 +460,7 @@ export function evaluateValVarFun(
         }
         runparams.push(newparam);
       }
-      return funObj.run(runparams, runtimeContext);
+      return await funObj.run(runparams, runtimeContext);
     }
   }
 }

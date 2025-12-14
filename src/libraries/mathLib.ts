@@ -7,7 +7,7 @@ export const MathLibrary: Library = {
     params: [],
     safe: true,
     lazy: false,
-    run: (params: RecordVal[], runContext: RunContext) => {
+    run: async (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal("NUM", Math.PI);
     },
   },
@@ -15,7 +15,7 @@ export const MathLibrary: Library = {
     params: ["NUM"],
     safe: true,
     lazy: false,
-    run: (params: RecordVal[], runContext: RunContext) => {
+    run: async (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal("NUM", Math.floor(Number(params[0].value)));
     },
   },
@@ -23,7 +23,7 @@ export const MathLibrary: Library = {
     params: ["NUM"],
     safe: true,
     lazy: false,
-    run: (params: RecordVal[], runContext: RunContext) => {
+    run: async (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal("NUM", Math.ceil(Number(params[0].value)));
     },
   },
@@ -31,7 +31,7 @@ export const MathLibrary: Library = {
     params: ["NUM"],
     safe: true,
     lazy: false,
-    run: (params: RecordVal[], runContext: RunContext) => {
+    run: async (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal("NUM", Math.round(Number(params[0].value)));
     },
   },
@@ -39,7 +39,7 @@ export const MathLibrary: Library = {
     params: [],
     safe: true,
     lazy: false,
-    run: (params: RecordVal[], runContext: RunContext) => {
+    run: async (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal("NUM", Math.E);
     },
   },
@@ -47,7 +47,7 @@ export const MathLibrary: Library = {
     params: ["NUM"],
     safe: true,
     lazy: false,
-    run: (params: RecordVal[], runContext: RunContext) => {
+    run: async (params: RecordVal[], runContext: RunContext) => {
       return numberOrNil(Math.sqrt(Number(params[0].value)))
     },
   },
@@ -55,7 +55,7 @@ export const MathLibrary: Library = {
     params: ["NUM", "NUM"],
     safe: true,
     lazy: false,
-    run: (params: RecordVal[], runContext: RunContext) => {
+    run: async (params: RecordVal[], runContext: RunContext) => {
       return numberOrNil(Math.pow(Number(params[0].value), Number(params[1].value)))
     },
   },
@@ -63,7 +63,7 @@ export const MathLibrary: Library = {
     params: ["NUM"],
     safe: true,
     lazy: false,
-    run: (params: RecordVal[], runContext: RunContext) => {
+    run: async (params: RecordVal[], runContext: RunContext) => {
       return numberOrNil(Math.log(Number(params[0].value)))
     },
   },
@@ -71,7 +71,7 @@ export const MathLibrary: Library = {
     params: ["NUM"],
     safe: true,
     lazy: false,
-    run: (params: RecordVal[], runContext: RunContext) => {
+    run: async (params: RecordVal[], runContext: RunContext) => {
       return numberOrNil(Math.log2(Number(params[0].value)))
     },
   },
@@ -79,7 +79,7 @@ export const MathLibrary: Library = {
     params: ["NUM"],
     safe: true,
     lazy: false,
-    run: (params: RecordVal[], runContext: RunContext) => {
+    run: async (params: RecordVal[], runContext: RunContext) => {
       return numberOrNil(Math.log10(Number(params[0].value)))
     },
   },
@@ -87,7 +87,7 @@ export const MathLibrary: Library = {
     params: ["NUM"],
     safe: true,
     lazy: false,
-    run: (params: RecordVal[], runContext: RunContext) => {
+    run: async (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal("NUM", Math.abs(Number(params[0].value)));
     },
   },
@@ -95,7 +95,7 @@ export const MathLibrary: Library = {
     params: ["NUM"],
     safe: true,
     lazy: false,
-    run: (params: RecordVal[], runContext: RunContext) => {
+    run: async (params: RecordVal[], runContext: RunContext) => {
       return numberOrNil(Math.sin(Number(params[0].value)));
     },
   },
@@ -103,7 +103,7 @@ export const MathLibrary: Library = {
     params: ["NUM"],
     safe: true,
     lazy: false,
-    run: (params: RecordVal[], runContext: RunContext) => {
+    run: async (params: RecordVal[], runContext: RunContext) => {
       return numberOrNil(Math.cos(Number(params[0].value)));
     },
   },
@@ -111,7 +111,7 @@ export const MathLibrary: Library = {
     params: ["NUM"],
     safe: true,
     lazy: false,
-    run: (params: RecordVal[], runContext: RunContext) => {
+    run: async (params: RecordVal[], runContext: RunContext) => {
       return numberOrNil(Math.tan(Number(params[0].value)));
     },
   },
@@ -119,7 +119,7 @@ export const MathLibrary: Library = {
     params: ["NUM", "NUM"],
     safe: true,
     lazy: false,
-    run: (params: RecordVal[], runContext: RunContext) => {
+    run: async (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal("NUM", Math.min(Number(params[0].value), Number(params[1].value)))
     },
   },
@@ -127,7 +127,7 @@ export const MathLibrary: Library = {
     params: ["NUM", "NUM"],
     safe: true,
     lazy: false,
-    run: (params: RecordVal[], runContext: RunContext) => {
+    run: async (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal("NUM", Math.max(Number(params[0].value), Number(params[1].value)))
     },
   },

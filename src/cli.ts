@@ -2,7 +2,7 @@
 import { run } from "./main.js";
 import fs from "fs";
 import path from "path";
-import { resolve } from "path";
+import { resolve, dirname } from "path";
 import { ConsoleErrorReporter } from "./error.js";
 import { colour } from "./utils/consoleUtils.js";
 
@@ -12,6 +12,7 @@ if (process.argv.length < 3) {
   const [, , filepath] = process.argv;
 
   const absPath = resolve(process.cwd(), filepath);
+  const baseDir = dirname(absPath);
 
   const extension = path.extname(filepath).toLowerCase();
   if (!filepath) {
@@ -31,7 +32,7 @@ if (process.argv.length < 3) {
             colour.bright(`: Could not read '${filepath}'\n`)
         );
       } else {
-        run(data, new ConsoleErrorReporter(data, filepath));
+        run(data, new ConsoleErrorReporter(data, filepath), baseDir);
       }
     });
   }

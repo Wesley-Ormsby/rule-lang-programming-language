@@ -752,6 +752,8 @@ begin >> [ myVarName text pi ] # [ 4, "Hello, World", 3.141592653589793 ]
 
 ### Standard Library
 - `print(message:any) -> nil`: Displays `message` in the console.
+- `input(prompt:str) -> str [UNSAFE]`: Displays `prompt` and waits until user enters input, returning that input.
+- `wait(delay:num) -> nil [UNSAFE]`: Delays `delay` milliseconds.
 - `type(value:any) -> str`: Returns the type of `value` as a string.
 - `less(left:num, right:num) -> bool`: Returns `true` if `left` is less than `right`, otherwise `false`.
 - `greater(left:num, right:num) -> bool`: Returns `true` if `left` is greater than `right`, otherwise `false`.
@@ -784,12 +786,12 @@ begin >> [ myVarName text pi ] # [ 4, "Hello, World", 3.141592653589793 ]
 - `to_str(value:any) -> str`: Converts `value` to a string.
 - `to_num(str:str) -> num`: Converts `str` to a number if possible, otherwise returns nil.
 - `get(index:num) -> any`: Returns the value at `index` in the record. Indexes start at `1` and the record is also indexed negatively with `-1` as the final index.
-- `push(value:any) -> any [unsafe]`: Appends `value` to the end of the record and returns it.
-- `push_begin(value:any) -> any [unsafe]`: Prepends `value` to the beginning of the record and returns it.
-- `pop() -> any [unsafe]`: Removes and returns the last value in the record. If the record is empty, returns `nil`.
-- `pop_begin() -> any [unsafe]`: Removes and returns the first value in the record. If the record is empty, returns `nil`.
-- `insert(value:any, index:num) -> any [unsafe]`: Inserts `value` at the given `index` in the record and returns it. If `index` is out of range, throws an error.
-- `reverse() -> nil [unsafe]`: Reverses the order of values in the record and returns `nil`.
+- `push(value:any) -> any [UNSAFE]`: Appends `value` to the end of the record and returns it.
+- `push_begin(value:any) -> any [UNSAFE]`: Prepends `value` to the beginning of the record and returns it.
+- `pop() -> any [UNSAFE]`: Removes and returns the last value in the record. If the record is empty, returns `nil`.
+- `pop_begin() -> any [UNSAFE]`: Removes and returns the first value in the record. If the record is empty, returns `nil`.
+- `insert(value:any, index:num) -> any [UNSAFE]`: Inserts `value` at the given `index` in the record and returns it. If `index` is out of range, throws an error.
+- `reverse() -> nil [UNSAFE]`: Reverses the order of values in the record and returns `nil`.
 
 ### Math
 ```py
@@ -818,7 +820,7 @@ import string
 - `str_lowercase(str:str) -> str`: Returns `str` converted to lowercase.
 - `str_uppercase(str:str) -> str`: Returns `str` converted to uppercase.
 - `str_trim(str:str) -> str`: Returns `str` with leading and trailing whitespace removed.
-- `str_split(str:str, delimiter:str) -> nil [unsafe]`: Splits `str` by `delimiter` and appends the resulting substrings as new values to the record. Returns `nil`.
+- `str_split(str:str, delimiter:str) -> nil [UNSAFE]`: Splits `str` by `delimiter` and appends the resulting substrings as new values to the record. Returns `nil`.
 - `str_get_char(str:str index:num) -> str`: Gets the character at at `index` within `str` and returns it as a 1-character string.
 - `str_substr(str:str i:num j:num) -> str`: Returns the substring of `str`, all the characters from index `i` to `j` inclusive.
 - `str_starts_with(str:str start:str) -> bool`: Returns `true` if `str` starts with the string `start`, otherwise `false`.
@@ -829,6 +831,17 @@ import string
 - `str_replace(str:str searchStr:str replaceStr:str) -> str`: Returns `str` with the first occurrence of `searchStr` replaced with `replaceStr`.
 - `str_char_code(char:str) -> num`: Returns the unicode number representation of the 1-character string `char`.
 - `str_char_code(charCode:num) -> str`: Returns the text representation of the unicode code `charCode` as a string.
+
+```py
+import file
+```
+- `file_read(path:str) -> str`: Returns the contents of the file at `path`.
+- `file_write(path:str content:str) -> nil`: Writes `content` to the file at `path`. If the file already exists, its contents are overwritten.
+- `file_append(path:str content:str) -> nil`: Appends `content` to the end of the file at `path`. If the file does not exists, it will make a new file first.
+- `file_prepend(path:str content:str) -> nil`: Prepends `content` to the start of the file at `path`. If the file does not exists, it will make a new file first.
+- `file_remove(path:str) -> nil`: Deletes the file at `path`.
+- `file_rename(fromPath:str toPath:str) -> nil`: Renames the file at `fromPath` to `toPath`.
+- `file_exists(path:str) -> bool`: Returns `true` if the file at `path` exists. Otherwise it returns `false`.
 
 ## Error Codes
 ### Lexing (Scanning) errors
@@ -892,3 +905,9 @@ import string
 - `E400002`: \`x\` is out of range for \`myCalledFunction\` function, the record has y values
 - `E400003`: `Index \`index\` is out of range for string
 - `E400004`: Parameter for \`myCalledFunction\` function must be a 1-character string
+- `E400005`: Cannot read file \`myPath\`
+- `E400006`: Cannot write to file \`myPath\`
+- `E400007`: Cannot append to file \`myPath\`
+- `E400008`: Cannot prepend to file \`myPath\`
+- `E400009`: Cannot remove file \`myPath\`
+- `E4000010`: Cannot rename file \`fromPath\` to \`toPath\``

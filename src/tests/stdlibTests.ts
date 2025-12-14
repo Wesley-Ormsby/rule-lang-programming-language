@@ -1,6 +1,6 @@
 import { Term, test } from "./testRunner.js";
 
-export function runStandardLibraryTests() {
+export async function runStandardLibraryTests() {
   test(
   `type`,
   `begin >> [type(0) type("this") type(Term) type(true) type(nil)]`,

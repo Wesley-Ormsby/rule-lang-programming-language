@@ -4,16 +4,18 @@ import { ErrorReporter } from "./error.js";
 import { Runtime } from "./runtime.js";
 import { RecordVal } from "./record.js";
 
-export function run(
+export async function run(
   source: string,
-  errorReporter: ErrorReporter
-): RecordVal[] | null {
+  errorReporter: ErrorReporter,
+  baseDirectory: string
+): Promise<RecordVal[] | null> {
   const lexer = new Lexer(source, errorReporter);
   if (!errorReporter.hasError()) {
     const parser = new Parser(lexer.getTokenList(), errorReporter);
     if (!errorReporter.hasError()) {
       const parserResults = parser.getParserResults()
-      const runtime = new Runtime(parserResults.ast, parserResults.imports, parserResults.defs, errorReporter);
+      const runtime = new Runtime(parserResults.ast, parserResults.imports, parserResults.defs, errorReporter, baseDirectory);
+      await runtime.init()
       if (!errorReporter.hasError()) {
         return runtime.getRecord();
       }

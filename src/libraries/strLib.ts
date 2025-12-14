@@ -8,7 +8,7 @@ export const StrLibrary: Library = {
     params: ["STR","NUM" ],
     safe: true,
     lazy: false,
-    run: (params: RecordVal[], runContext: RunContext) => {
+    run: async (params: RecordVal[], runContext: RunContext) => {
       const num = Number(params[1].value);
       if (!Number.isInteger(num))
         return notIntegerError(
@@ -33,7 +33,7 @@ export const StrLibrary: Library = {
     params: ["STR"],
     safe: true,
     lazy: false,
-    run: (params: RecordVal[], runContext: RunContext) => {
+    run: async (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal("STR", params[0].value.toLocaleUpperCase());
     },
   },
@@ -41,7 +41,7 @@ export const StrLibrary: Library = {
     params: ["STR"],
     safe: true,
     lazy: false,
-    run: (params: RecordVal[], runContext: RunContext) => {
+    run: async (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal("STR", params[0].value.toLocaleLowerCase());
     },
   },
@@ -49,7 +49,7 @@ export const StrLibrary: Library = {
     params: ["STR"],
     safe: true,
     lazy: false,
-    run: (params: RecordVal[], runContext: RunContext) => {
+    run: async (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal("STR", params[0].value.trim());
     },
   },
@@ -57,7 +57,7 @@ export const StrLibrary: Library = {
     params: ["STR", "STR"],
     safe: false,
     lazy: false,
-    run: (params: RecordVal[], runContext: RunContext) => {
+    run: async (params: RecordVal[], runContext: RunContext) => {
       params[0].value
         .split(params[1].value)
         .map((substring) => newRecordVal("STR", substring))
@@ -72,7 +72,7 @@ export const StrLibrary: Library = {
     params: ["STR", "NUM", "NUM"],
     safe: true,
     lazy: false,
-    run: (params: RecordVal[], runContext: RunContext) => {
+    run: async (params: RecordVal[], runContext: RunContext) => {
       const num1 = Number(params[1].value);
       if (!Number.isInteger(num1))
         runContext.errorReporter.pushErr(
@@ -117,7 +117,7 @@ export const StrLibrary: Library = {
     params: ["STR", "STR"],
     safe: true,
     lazy: false,
-    run: (params: RecordVal[], runContext: RunContext) => {
+    run: async (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal("BOOL", params[0].value.startsWith(params[1].value));
     },
   },
@@ -125,7 +125,7 @@ export const StrLibrary: Library = {
     params: ["STR", "STR"],
     safe: true,
     lazy: false,
-    run: (params: RecordVal[], runContext: RunContext) => {
+    run: async (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal("BOOL", params[0].value.endsWith(params[1].value));
     },
   },
@@ -133,7 +133,7 @@ export const StrLibrary: Library = {
     params: ["STR", "STR"],
     safe: true,
     lazy: false,
-    run: (params: RecordVal[], runContext: RunContext) => {
+    run: async (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal("BOOL", params[0].value.includes(params[1].value));
     },
   },
@@ -141,7 +141,7 @@ export const StrLibrary: Library = {
     params: ["STR", "STR"],
     safe: true,
     lazy: false,
-    run: (params: RecordVal[], runContext: RunContext) => {
+    run: async (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal("NUM", params[0].value.indexOf(params[1].value));
     },
   },
@@ -149,7 +149,7 @@ export const StrLibrary: Library = {
     params: ["STR", "STR"],
     safe: true,
     lazy: false,
-    run: (params: RecordVal[], runContext: RunContext) => {
+    run: async (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal("NUM", params[0].value.lastIndexOf(params[1].value));
     },
   },
@@ -157,7 +157,7 @@ export const StrLibrary: Library = {
     params: ["STR", "NUM"],
     safe: true,
     lazy: false,
-    run: (params: RecordVal[], runContext: RunContext) => {
+    run: async (params: RecordVal[], runContext: RunContext) => {
       const num = Number(params[1].value);
       if (!Number.isInteger(num))
         return notIntegerError(
@@ -172,7 +172,7 @@ export const StrLibrary: Library = {
     params: ["STR", "STR", "STR"],
     safe: true,
     lazy: false,
-    run: (params: RecordVal[], runContext: RunContext) => {
+    run: async (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal(
         "STR",
         params[0].value.replace(params[1].value, params[2].value)
@@ -183,7 +183,7 @@ export const StrLibrary: Library = {
     params: ["STR"],
     safe: true,
     lazy: false,
-    run: (params: RecordVal[], runContext: RunContext) => {
+    run: async (params: RecordVal[], runContext: RunContext) => {
       const char = params[0].value;
       if (char.length != 1)
         return runContext.errorReporter.throwErr(
@@ -198,7 +198,7 @@ export const StrLibrary: Library = {
     params: ["NUM"],
     safe: true,
     lazy: false,
-    run: (params: RecordVal[], runContext: RunContext) => {
+    run: async (params: RecordVal[], runContext: RunContext) => {
       const num = Number(params[0].value);
       if (!Number.isInteger(num))
         return notIntegerError(
