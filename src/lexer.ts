@@ -310,7 +310,6 @@ export class Lexer {
           return;
         }
         this.consume();
-        this.lexeme = this.lexeme.substring(1, this.lexeme.length - 1);
         this.addToken("STR");
         break;
       // Comments

@@ -224,13 +224,16 @@ export class Parser {
     const token: Token = this.tokenList[this.pos];
     // Parse Value
     if (["STR", "NUM", "TERM", "BOOL", "NIL"].includes(token.type)) {
+      let value = token.lexeme;
       if (token.type === "NUM") {
-        token.lexeme = String(Number(token.lexeme));
+        value = String(Number(token.lexeme));
+      } else if(token.type == "STR") {
+        value = token.lexeme.substring(1, token.lexeme.length - 1); // remove quotes
       }
       this.next(); // Remove value token
       return {
         kind: "Value",
-        value: token.lexeme,
+        value,
         push: add,
         token,
         type: this.toValType(token),
