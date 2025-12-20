@@ -117,18 +117,20 @@ export const MathLibrary: Library = {
   },
   math_min: {
     params: ["NUM", "NUM"],
+    variadic: "NUM",
     safe: true,
     lazy: false,
     run: async (params: RecordVal[], runContext: RunContext) => {
-      return newRecordVal("NUM", Math.min(Number(params[0].value), Number(params[1].value)))
+      return newRecordVal("NUM", Math.min(...params.map(x=>Number(x.value))))
     },
   },
   math_max: {
     params: ["NUM", "NUM"],
+    variadic: "NUM",
     safe: true,
     lazy: false,
     run: async (params: RecordVal[], runContext: RunContext) => {
-      return newRecordVal("NUM", Math.max(Number(params[0].value), Number(params[1].value)))
+      return newRecordVal("NUM", Math.max(...params.map(x=>Number(x.value))))
     },
   },
 };

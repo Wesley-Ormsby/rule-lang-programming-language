@@ -6,18 +6,42 @@ import {
 } from "./runtime.js";
 import { notIntegerError, outOfRangeError } from "./utils/libraryErrors.js";
 import { RecordVal } from "./record.js";
-import { Library } from "./utils/libraryUtils.js";
+import { format, Library } from "./utils/libraryUtils.js";
 import readline from 'node:readline';
 import { setTimeout } from "node:timers/promises";
 
 export const StandardLibrary: Library = {
   print: {
     params: ["ANY"],
+    variadic: "ANY",
     safe: true,
     lazy: false,
     run: async (params: RecordVal[], runContext: RunContext) => {
-      console.log(params[0].value);
+      console.log(...params.map(x=>x.value));
       return newRecordVal("NIL", "nil");
+    },
+  },
+  printf: {
+    params: ["STR"],
+    variadic: "ANY",
+    safe: true,
+    lazy: false,
+    run: async (params: RecordVal[], runContext: RunContext) => {
+      const str = format(0, 1, params, runContext.lazyparams, runContext.errorReporter)
+      if(str == null) return null
+      console.log(str);
+      return newRecordVal("NIL", "nil");
+    },
+  },
+  format: {
+    params: ["STR"],
+    variadic: "ANY",
+    safe: true,
+    lazy: false,
+    run: async (params: RecordVal[], runContext: RunContext) => {
+      const str = format(0, 1, params, runContext.lazyparams, runContext.errorReporter)
+      if(str == null) return null
+      return newRecordVal("STR", str);
     },
   },
   type: {
@@ -293,10 +317,11 @@ export const StandardLibrary: Library = {
   },
   join: {
     params: ["STR", "STR"],
+    variadic:"STR",
     safe: true,
     lazy: false,
     run: async (params: RecordVal[], runContext: RunContext) => {
-      return newRecordVal("STR", params[0].value + params[1].value);
+      return newRecordVal("STR", params.map(x=>x.value).join(""));
     },
   },
   is_str: {
@@ -424,20 +449,24 @@ export const StandardLibrary: Library = {
   },
   push: {
     params: ["ANY"],
+    variadic: "ANY",
     safe: false,
     lazy: false,
     run: async (params: RecordVal[], runContext: RunContext) => {
-      runContext.record.addLast(params[0]);
-      return params[0];
+      for(let param of params)
+        runContext.record.addLast(param);
+      return newRecordVal("NIL", "nil");
     },
   },
   push_begin: {
     params: ["ANY"],
+    variadic: "ANY",
     safe: false,
     lazy: false,
     run: async (params: RecordVal[], runContext: RunContext) => {
-      runContext.record.addFirst(params[0]);
-      return params[0];
+      for(let param of params.reverse())
+        runContext.record.addFirst(param);
+      return newRecordVal("NIL", "nil");
     },
   },
   pop_begin: {

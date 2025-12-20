@@ -38,7 +38,7 @@ export async function test(
   testsRun += 1;
   let result: RecordVal[] | null = null;
   try {
-    result = await run(source, errReporter);
+    result = await run(source, errReporter, "/testing-files");
   } catch (e) {
     console.log(
       "========================================================================"
@@ -107,9 +107,9 @@ function listToRecord(
 function failDisplayErrorDifferences(
   testLabel: string,
   expectedErrs: string[],
-  resultErrs: string[],
+  resultErrs: string[]
 ) {
-  printFailHeader(testLabel, expectedErrs)
+  printFailHeader(testLabel, expectedErrs);
   const end = Math.max(expectedErrs.length, resultErrs.length);
   let expected: string[] = [];
   let got: string[] = [];
@@ -150,7 +150,7 @@ function failDisplayRecordDifferences(
   resultRecord: RecordVal[],
   expectedErrors: string[]
 ) {
-  printFailHeader(testLabel, expectedErrors)
+  printFailHeader(testLabel, expectedErrors);
   const end = Math.max(expectedRecord.length, resultRecord.length);
   let expected: string[] = [];
   let got: string[] = [];
@@ -182,7 +182,7 @@ function failDisplayRecordDifferences(
   testsFailed += 1;
 }
 
-function printFailHeader(testLabel:string, expectedErrors: string[]) {
+function printFailHeader(testLabel: string, expectedErrors: string[]) {
   console.log(
     "========================================================================"
   );
@@ -198,26 +198,26 @@ function recordValToStr(val: RecordVal) {
 }
 
 /* Run Tests */
-runLexerTests();
-runParserTests();
-runRuntimeTests();
-runStandardLibraryTests();
-runMathLibraryTests();
-runStringLibraryTests();
+async function runTests() {
+  await runLexerTests();
+  await runParserTests();
+  await runRuntimeTests();
+  await runStandardLibraryTests();
+  await runMathLibraryTests();
+  await runStringLibraryTests();
 
-/* TESTING FUNCTIONS */
-
-/* Math Library Functions */
-
-/* Str Library Functions */
-
-if (testsFailed) {
-  console.log(
-  "========================================================================"
-);
-  console.log(
-    colour.red(colour.bright(`${testsFailed}/${testsRun} OF ALL TESTS FAILED`))
-  );
-} else {
-  console.log(colour.green(`ALL TESTS PASSED (${testsRun}/${testsRun})`));
+  if (testsFailed) {
+    console.log(
+      "========================================================================"
+    );
+    console.log(
+      colour.red(
+        colour.bright(`${testsFailed}/${testsRun} OF ALL TESTS FAILED`)
+      )
+    );
+  } else {
+    console.log(colour.green(`ALL TESTS PASSED (${testsRun}/${testsRun})`));
+  }
 }
+
+await runTests();

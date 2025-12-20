@@ -9,5 +9,5 @@ CheckPalidrome str as word
         str str as (part1 part2) -> join(part1 part2)
     ]
     >> word
-str str as (reversed word) if reversed = str_lowercase(word) !> print(join(word " is a palindrome!"))
-str str as (reversed word) !> print(join(word " is not a palindrome!"))
+str str as (reversed word) if reversed = str_lowercase(word) !> printf("% is a palindrome!" word)
+str str as (reversed word) !> printf("% is not a palindrome!" word)

@@ -52,9 +52,9 @@ export class Runtime {
     this.nameSpace = imports;
     Object.assign(this.nameSpace, StandardLibrary);
 
-    this.defs = defs
+    this.defs = defs;
     this.ast = ast;
-    this.baseDirectory = baseDirectory
+    this.baseDirectory = baseDirectory;
   }
 
   public async init() {
@@ -68,10 +68,10 @@ export class Runtime {
         false,
         this.errReporter,
         this.nameSpace,
-        this.baseDirectory,
+        this.baseDirectory
       );
       // We know defs are unique (from the parser)
-      if(result != null) varMap[key] = [result];
+      if (result != null) varMap[key] = [result];
     }
 
     if (this.ast != null && this.ast.kind == "RuleScope") {
@@ -92,7 +92,10 @@ export class Runtime {
     }
   }
 
-  private async evaluateRuleScope(ruleScope: RuleScopeNode, variables: VarMap): Promise<void> {
+  private async evaluateRuleScope(
+    ruleScope: RuleScopeNode,
+    variables: VarMap
+  ): Promise<void> {
     // Begin rules
     if (ruleScope.begin !== null) {
       for (let scope of ruleScope.begin) {
@@ -115,7 +118,10 @@ export class Runtime {
             const expression: ExprNode | null = rule.expression;
             // Check if the pattern matches
             if (as.length > this.record.size() - pointer) continue downLoop;
-            const patternMatches = await this.testPatternValueMatch(pattern, pointer);
+            const patternMatches = await this.testPatternValueMatch(
+              pattern,
+              pointer
+            );
             if (!patternMatches) continue downLoop;
             // Pattern matches, so get variables and remove the match from the record
             as.forEach((name: string | null, index: number) => {
@@ -188,7 +194,10 @@ export class Runtime {
     }
   }
 
-  private async testPatternValueMatch(patVal: PatternNode, pointer: number): Promise<boolean> {
+  private async testPatternValueMatch(
+    patVal: PatternNode,
+    pointer: number
+  ): Promise<boolean> {
     let currentRecordValue = this.record.get(pointer);
     if (currentRecordValue == null) return false; // This should never run, if it does, pointer is out of sync
     if (patVal.kind == "Value") {
@@ -212,8 +221,8 @@ export class Runtime {
       }
     } else if (patVal.kind == "PatternOr") {
       return (
-        await this.testPatternValueMatch(patVal.left, pointer) ||
-        await this.testPatternValueMatch(patVal.right, pointer)
+        (await this.testPatternValueMatch(patVal.left, pointer)) ||
+        (await this.testPatternValueMatch(patVal.right, pointer))
       );
     } else if (patVal.kind == "PatternNot") {
       return !(await this.testPatternValueMatch(patVal.right, pointer));
@@ -243,7 +252,7 @@ export class Runtime {
         true,
         this.errReporter,
         this.nameSpace,
-        this.baseDirectory,
+        this.baseDirectory
       );
     } else if (exp.kind == "BinaryExpr") {
       let left = await this.evaluateExpression(exp.left, variables);
@@ -416,10 +425,14 @@ export async function evaluateValVarFun(
         `Function \`${name}\` is not a safe function and cannot be used in expressions or replacing value scopes (\`-> [ ... ]\`)`,
         "300004"
       );
-    if (funObj.params.length !== params.length)
+    if (
+      funObj.variadic
+        ? params.length < funObj.params.length
+        : funObj.params.length !== params.length
+    )
       return errorReporter.throwErr(
         errorToken,
-        `Invalid number of parameters, function \`${name}\` must have ${funObj.params.length} parameter${funObj.params.length === 1 ? "" : "s"}`,
+        `Invalid number of parameters, function \`${name}\` must have ${funObj.variadic ? "at least" : ""} ${funObj.params.length} parameter${funObj.params.length !== 1 || funObj.variadic ? "s" : ""}`,
         "300005"
       );
     let runtimeContext = {
@@ -430,7 +443,7 @@ export async function evaluateValVarFun(
       errorToken,
       errorReporter,
       nameSpace,
-      baseDirectory
+      baseDirectory,
     };
     if (funObj.lazy) {
       // Lazy run
@@ -448,7 +461,17 @@ export async function evaluateValVarFun(
           baseDirectory
         );
         if (newparam === null) return null;
-        if (
+        if (funObj.variadic && index >= funObj.params.length) {
+          if (
+            funObj.variadic != "ANY" &&
+            funObj.variadic !== newparam.type
+          )
+            return errorReporter.throwErr(
+              param.token,
+              `Parameter ${index + 1} of \`${name}\` function must be a \`${funObj.variadic.toLowerCase()}\` type`,
+              "300006"
+            );
+        } else if (
           funObj.params[index] !== "ANY" &&
           funObj.params[index] !== newparam.type
         ) {

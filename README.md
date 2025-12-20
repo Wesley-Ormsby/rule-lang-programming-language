@@ -726,6 +726,48 @@ begin >> [ 1 ]
 num as x if push(x) | true !> [] 
 ```
 
+#### String Formatting
+Some functions have string formatting where additional arguments are formatted and written into placeholders within the string. Placeholders have the form `%[flags][width][.precision][!]` where all components in square brackets are optional.
+
+An explanation of each of the components:
+
+- `flags`: A sequence of the following characters
+   - `>`: Makes the output right-justified by adding any padding spaces to the left instead of to the right
+   - `^`: Makes the output center-justified where padding is evenly distributed on either side (an extra space defaults to the left)
+   - `+`: Causes positive numbers to be prefixed with `+`
+   - `_`: Prefixes a space to positive numbers (so digits can be lined up with the digits of negative numbers)
+   - `,`: Groups digits (like by thousands, based on user's locale)
+- `width`: A whole number specifying the minimum number of characters that the output should occupy. If necessary, extra spaces will default to the right of the content (unless the `>` flag is used)
+- `.precision`: A `.` followed by a whole number which indicates how many decimal digits to show in the formatted data
+- `!`: Optional delimiter 
+
+```py
+def pi := 3.14159265359
+def mil := 1000000
+
+def s1 := format("PI: %" pi) # becomes "PI: 3.14159265359"
+def s2 := format("PI: %.2" pi) # becomes "PI: 3.14"
+def s3 := format("PI: %_.3" pi) # becomes "PI:  3.141"
+def s4 := format("Million: %," mil) # becomes "Million: 1,000,000"
+def s5 := format("PI: %.2 | Million: %" pi mil) # becomes "PI: 3.14 | Million: 1000000"
+
+def widthStr := format("| %5 |\n| %^5 |\n| %>5 |" 1 2 3) 
+# becomes: 
+# | 1     |
+# |   2   |
+# |     3 |
+```
+
+A delimiter is used to include placeholder characters without including them in the placeholder:
+```py
+def s := format("%!, %!!" "Hello" "World") # becomes "Hello, World!"
+```
+
+To display a `%` character, you can use the code `%%`. The `format` function creates a formatted string:
+```py
+def s := format("%!%%" 0.56) # becomes "0.56%"
+```
+
 ## Libraries
 RuleLand has several built-in libraries that extend functionality. Unlike standard library functions, you need to `import` these functions before you use them. You can import the full library and all functions within, or you can specify which functions to import. Regardless, imports must be at the top of the file.
 ```py
@@ -751,7 +793,8 @@ begin >> [ myVarName text pi ] # [ 4, "Hello, World", 3.141592653589793 ]
 ## Function Docs
 
 ### Standard Library
-- `print(message:any) -> nil`: Displays `message` in the console.
+- `print(...messages:any) -> nil`: Displays all `messages` in the console joined by spaces.
+- `printf(template:str ...parameters:any) -> nil`: Displays the formatted string `template` with the `parameters` inserted in placeholders.
 - `input(prompt:str) -> str [UNSAFE]`: Displays `prompt` and waits until user enters input, returning that input.
 - `wait(delay:num) -> nil [UNSAFE]`: Delays `delay` milliseconds.
 - `type(value:any) -> str`: Returns the type of `value` as a string.
@@ -775,7 +818,8 @@ begin >> [ myVarName text pi ] # [ 4, "Hello, World", 3.141592653589793 ]
 - `empty() -> nil [UNSAFE]`: Clears the record.
 - `size() -> num`: Returns the size of the record.
 - `length(str:str) -> num`: Returns the length of `str`.
-- `join(left:str, right:str) -> str`: Returns the concatenation of `left` and `right`.
+- `format(template:str ...parameters:any) -> str`: Returns the formatted string `template` with the `parameters` inserted in placeholders.
+- `join(left:str, right:str ...strs:str) -> str`: Returns the concatenation of `left` and `right` and any additional string parameter.
 - `join_with(left:str, right:str, combiner:str) -> str`: Returns `left`, `combiner`, and `right` concatenated together.
 - `is_str(value:any) -> bool`: Returns `true` if `value` is a string, otherwise `false`.
 - `is_num(value:any) -> bool`: Returns `true` if `value` is a number, otherwise `false`.
@@ -786,8 +830,8 @@ begin >> [ myVarName text pi ] # [ 4, "Hello, World", 3.141592653589793 ]
 - `to_str(value:any) -> str`: Converts `value` to a string.
 - `to_num(str:str) -> num`: Converts `str` to a number if possible, otherwise returns nil.
 - `get(index:num) -> any`: Returns the value at `index` in the record. Indexes start at `1` and the record is also indexed negatively with `-1` as the final index.
-- `push(value:any) -> any [UNSAFE]`: Appends `value` to the end of the record and returns it.
-- `push_begin(value:any) -> any [UNSAFE]`: Prepends `value` to the beginning of the record and returns it.
+- `push(...values:any) -> any [UNSAFE]`: Appends `values` to the end of the record and returns `nil`.
+- `push_begin(...values:any) -> any [UNSAFE]`: Prepends `values` to the beginning of the record and returns `nil`.
 - `pop() -> any [UNSAFE]`: Removes and returns the last value in the record. If the record is empty, returns `nil`.
 - `pop_begin() -> any [UNSAFE]`: Removes and returns the first value in the record. If the record is empty, returns `nil`.
 - `insert(value:any, index:num) -> any [UNSAFE]`: Inserts `value` at the given `index` in the record and returns it. If `index` is out of range, throws an error.
@@ -811,8 +855,8 @@ import math
 - `math_sin(radians:num) -> num`: Returns the sine of a radian angle `radians`.
 - `math_cos(radians:num) -> num`: Returns the cosine of a radian angle `radians`.
 - `math_tan(radians:num) -> num`: Returns the tangent of a radian angle `radians`.
-- `math_min(val1:num val2:num) -> num`: Returns the minimum value of `val1` and `val2`.
-- `math_max(val1:num val2:num) -> num`: Returns the maximum value of `val1` and `val2`.
+- `math_min(val1:num val2:num ...nums:num) -> num`: Returns the minimum value of all number parameters.
+- `math_max(val1:num val2:num ...nums:num) -> num`: Returns the maximum value of all number parameters.
 ### String
 ```py
 import string
@@ -911,3 +955,5 @@ import file
 - `E400008`: Cannot prepend to file \`myPath\`
 - `E400009`: Cannot remove file \`myPath\`
 - `E4000010`: Cannot rename file \`fromPath\` to \`toPath\``
+- `E4000011`: Too few parameters for the placeholders in the format string
+- `E4000012`: Too many parameters for the placeholders in the format string
