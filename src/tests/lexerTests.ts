@@ -1,6 +1,7 @@
 import { test } from "./testRunner.js";
 
 export async function runLexerTests() {
+  console.log("Running lexer tests...")
   await test("Unexpected token", `1 $%* 8`, [], ["100001"]);
   await test("Unexpected token [at end of file]", `1 $%*`, [], ["100001"]);
   await test("Unexpected Token [at newline]", `1 $%*\n1`, [], ["100001"]);

@@ -36,6 +36,10 @@ export type TT =
   | "IMPORT"
   | "FROM"
   | "DEF"
+  | "CLONE"
+  | "NEW"
+  | "ELIF"
+  | "ELSE"
 
   // Logicals
   | "NOT"

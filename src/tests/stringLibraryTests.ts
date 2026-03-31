@@ -1,6 +1,7 @@
 import { test } from "./testRunner.js";
 
 export async function runStringLibraryTests() {
+  console.log("Running string library tests...")
   await test(
     `str_trim`,
     `import [str_trim] from string begin >> [ str_trim(" one ") str_trim("1") ]`,

@@ -1,9 +1,11 @@
 import { ErrorReporter } from "./error.js";
 import {
+  ExpressionBranch,
   ExprNode,
   Node,
   PatternNode,
   RuleScopeNode,
+  ScopeNode,
   ValueNode,
   ValueOrFunctionNode,
   ValueScopeNode,
@@ -12,7 +14,7 @@ import {
 import { Defs } from "./parser.js";
 import { RecordTape, RecordVal } from "./record.js";
 import { StandardLibrary } from "./stdlib.js";
-import { Token } from "./token.js";
+import { Token, TT } from "./token.js";
 import { Library, ModuleFunction } from "./utils/libraryUtils.js";
 
 export interface RunContext {
@@ -43,9 +45,8 @@ export class Runtime {
     imports: Library,
     defs: Defs,
     reporter: ErrorReporter,
-    baseDirectory: string
+    baseDirectory: string,
   ) {
-    this.record = new RecordTape();
     this.errReporter = reporter;
 
     // Add standard library functions to namespace
@@ -58,75 +59,87 @@ export class Runtime {
   }
 
   public async init() {
+    const record = new RecordTape();
     let varMap: VarMap = {};
     // Evaluate defs and add them to the map
     for (let key of Object.keys(this.defs)) {
       const result = await evaluateValVarFun(
         this.defs[key],
         varMap,
-        this.record,
+        record,
         false,
         this.errReporter,
         this.nameSpace,
-        this.baseDirectory
+        this.baseDirectory,
       );
       // We know defs are unique (from the parser)
       if (result != null) varMap[key] = [result];
     }
 
     if (this.ast != null && this.ast.kind == "RuleScope") {
-      await this.evaluateRuleScope(this.ast, varMap);
+      await this.evaluateRuleScope(this.ast, varMap, record);
     }
+    this.record = record;
   }
 
   private async evaluate(
     node: Node | null,
     variables: VarMap,
-    pointer: number = 0
+    record: RecordTape,
+    pointer: number = 0,
   ): Promise<void> {
     if (node === null) return;
     if (node.kind == "RuleScope") {
-      await this.evaluateRuleScope(node, variables);
+      await this.evaluateRuleScope(node, variables, record, pointer);
     } else if (node.kind == "ValueScope") {
-      await this.evaluateValueScope(node, variables, pointer);
+      await this.evaluateValueScope(node, variables, record, pointer);
     }
   }
 
   private async evaluateRuleScope(
     ruleScope: RuleScopeNode,
-    variables: VarMap
+    variables: VarMap,
+    parentRecord: RecordTape,
+    parentPointer: number = 0,
   ): Promise<void> {
+    // Get the record the the scope will operate on
+    let record = parentRecord;
+    if (ruleScope.modifier) {
+      if (ruleScope.modifier === "NEW") {
+        record = new RecordTape();
+      } else {
+        record = RecordTape.clone(parentRecord);
+      }
+    }
+
     // Begin rules
     if (ruleScope.begin !== null) {
       for (let scope of ruleScope.begin) {
         if (this.errReporter.hasError()) return;
-        await this.evaluate(scope, variables);
+        await this.evaluate(scope, variables, record);
       }
     }
 
     // Custom Rules
     if (ruleScope.customs !== null) {
       matchingLoop: while (true) {
-        acrossLoop: for (
-          let pointer = 0;
-          pointer < this.record.size();
-          pointer++
-        ) {
+        acrossLoop: for (let pointer = 0; pointer < record.size(); pointer++) {
           downLoop: for (let rule of ruleScope.customs) {
             const as: Array<string | null> = rule.variables;
             const pattern: PatternNode = rule.pattern;
-            const expression: ExprNode | null = rule.expression;
+
             // Check if the pattern matches
-            if (as.length > this.record.size() - pointer) continue downLoop;
+            if (as.length > record.size() - pointer) continue downLoop;
             const patternMatches = await this.testPatternValueMatch(
               pattern,
-              pointer
+              pointer,
+              record,
             );
             if (!patternMatches) continue downLoop;
             // Pattern matches, so get variables and remove the match from the record
             as.forEach((name: string | null, index: number) => {
               if (name !== null) {
-                const val = this.record.get(pointer + index) as RecordVal;
+                const val = record.get(pointer + index) as RecordVal;
                 if (variables.hasOwnProperty(name)) {
                   variables[name].push(val);
                 } else {
@@ -134,36 +147,46 @@ export class Runtime {
                 }
               }
             });
-            // Check if the expression matches
-            if (expression !== null) {
+            // Check each branch for an expression match
+            let matchedScopes: ScopeNode[] | null = null;
+            for (const branch of rule.branches) {
+              if (branch.condition === null) {
+                matchedScopes = branch.scopes;
+                break; // No condition, so it matches
+              }
               const expressionEval = await this.evaluateExpression(
-                expression,
-                variables
+                branch.condition,
+                variables,
+                record,
               );
               if (expressionEval === null) return; // Error
-              if (!hasValue(expressionEval)) {
-                // Remove variables from scope
-                as.forEach((name: string | null, _: number) => {
-                  if (name !== null) {
-                    if (variables[name].length == 1) {
-                      delete variables[name];
-                    } else {
-                      variables[name].pop();
-                    }
-                  }
-                });
-                continue downLoop;
+              if (hasValue(expressionEval)) {
+                matchedScopes = branch.scopes;
+                break;
               }
+            }
+            // There are no matches, remove variables from scope
+            if (!matchedScopes) {
+              as.forEach((name: string | null, _: number) => {
+                if (name !== null) {
+                  if (variables[name].length == 1) {
+                    delete variables[name];
+                  } else {
+                    variables[name].pop();
+                  }
+                }
+              });
+              continue downLoop;
             }
             // Everything matched, so run the scope and re-try matching
             // First, remove the matched values from the record
             for (let i = 0; i < as.length; i++) {
-              this.record.remove(pointer); // since we are removing items, the pointer always points to the removed item
+              record.remove(pointer); // since we are removing items, the pointer always points to the removed item
             }
 
             // Run the scope
-            for (var scope of rule.scopes) {
-              await this.evaluate(scope, variables, pointer);
+            for (var scope of matchedScopes) {
+              await this.evaluate(scope, variables, record, pointer);
               if (this.errReporter.hasError()) return;
             }
 
@@ -189,16 +212,50 @@ export class Runtime {
     if (ruleScope.end !== null) {
       for (var scope of ruleScope.end) {
         if (this.errReporter.hasError()) return;
-        await this.evaluate(scope, variables);
+        await this.evaluate(scope, variables, record);
       }
     }
+
+    // If there was a scope modifier,
+    // depending on the type of scope, we need to insert or push into the parent record
+    if (ruleScope.modifier) {
+      const recordResult = record.getRecord();
+      this.modifyRecordWithRecordValues(
+        parentRecord,
+        ruleScope.operator,
+        parentPointer,
+        recordResult,
+      );
+    }
+  }
+
+  private modifyRecordWithRecordValues(
+    record: RecordTape,
+    operator: TT,
+    pointer: number,
+    recordValues: RecordVal[],
+  ) {
+    if (operator === "REPLACE_MATCH") {
+      let addAtPointer = pointer;
+      for (let i = 0; i < recordValues.length; i++) {
+        record.add(addAtPointer++, recordValues[i]);
+      }
+    } else if (operator === "PUSH_END_MATCH") {
+      recordValues.forEach((val) => record.addLast(val));
+    } else if (operator === "PUSH_BEGIN_MATCH") {
+      for (let i = recordValues.length - 1; i >= 0; i--) {
+        record.addFirst(recordValues[i]);
+      }
+    }
+    // Otherwise, it is a REMOVE_MATCH or PATTERN_MATCH, so skip the adding
   }
 
   private async testPatternValueMatch(
     patVal: PatternNode,
-    pointer: number
+    pointer: number,
+    record: RecordTape,
   ): Promise<boolean> {
-    let currentRecordValue = this.record.get(pointer);
+    let currentRecordValue = record.get(pointer);
     if (currentRecordValue == null) return false; // This should never run, if it does, pointer is out of sync
     if (patVal.kind == "Value") {
       return (
@@ -221,14 +278,18 @@ export class Runtime {
       }
     } else if (patVal.kind == "PatternOr") {
       return (
-        (await this.testPatternValueMatch(patVal.left, pointer)) ||
-        (await this.testPatternValueMatch(patVal.right, pointer))
+        (await this.testPatternValueMatch(patVal.left, pointer, record)) ||
+        (await this.testPatternValueMatch(patVal.right, pointer, record))
       );
     } else if (patVal.kind == "PatternNot") {
-      return !(await this.testPatternValueMatch(patVal.right, pointer));
+      return !(await this.testPatternValueMatch(patVal.right, pointer, record));
     } else {
       for (var patternValue of patVal.patterns) {
-        let test = await this.testPatternValueMatch(patternValue, pointer);
+        let test = await this.testPatternValueMatch(
+          patternValue,
+          pointer,
+          record,
+        );
         if (!test) return false;
         pointer += 1;
       }
@@ -238,7 +299,8 @@ export class Runtime {
 
   private async evaluateExpression(
     exp: ExprNode,
-    variables: VarMap
+    variables: VarMap,
+    record: RecordTape,
   ): Promise<RecordVal | null> {
     if (
       exp.kind == "Value" ||
@@ -248,14 +310,14 @@ export class Runtime {
       return await evaluateValVarFun(
         exp,
         variables,
-        this.record,
+        record,
         true,
         this.errReporter,
         this.nameSpace,
-        this.baseDirectory
+        this.baseDirectory,
       );
     } else if (exp.kind == "BinaryExpr") {
-      let left = await this.evaluateExpression(exp.left, variables);
+      let left = await this.evaluateExpression(exp.left, variables, record);
       if (left === null) return null;
       switch (exp.operator) {
         case "GREATER_THAN":
@@ -266,15 +328,19 @@ export class Runtime {
             return this.errReporter.throwErr(
               exp.token,
               `Left operand of \`${exp.token.lexeme}\` operator must be a number`,
-              "300001"
+              "300001",
             );
-          let right = await this.evaluateExpression(exp.right, variables);
+          let right = await this.evaluateExpression(
+            exp.right,
+            variables,
+            record,
+          );
           if (right === null) return null;
           if (right.type !== "NUM")
             return this.errReporter.throwErr(
               exp.token,
               `Right operand of \`${exp.token.lexeme}\` operator must be a number`,
-              "300002"
+              "300002",
             );
           const leftNum = Number(left.value);
           const rightNum = Number(right.value);
@@ -291,26 +357,38 @@ export class Runtime {
         default:
           if (exp.operator === "OR") {
             if (hasValue(left)) return left;
-            let right = await this.evaluateExpression(exp.right, variables);
+            let right = await this.evaluateExpression(
+              exp.right,
+              variables,
+              record,
+            );
             if (right === null) return null;
             return right;
           } else if (exp.operator === "AND") {
             if (!hasValue(left)) return left;
-            let right = await this.evaluateExpression(exp.right, variables);
+            let right = await this.evaluateExpression(
+              exp.right,
+              variables,
+              record,
+            );
             if (right === null) return null;
             return right;
           } else {
-            let right = await this.evaluateExpression(exp.right, variables);
+            let right = await this.evaluateExpression(
+              exp.right,
+              variables,
+              record,
+            );
             if (right === null) return null;
             if (exp.operator === "EQUAL_TO") {
               return newRecordVal(
                 "BOOL",
-                left.type === right.type && left.value === right.value
+                left.type === right.type && left.value === right.value,
               );
             } else {
               return newRecordVal(
                 "BOOL",
-                left.type !== right.type || left.value !== right.value
+                left.type !== right.type || left.value !== right.value,
               );
             }
           }
@@ -319,7 +397,8 @@ export class Runtime {
       // Unary Expression
       let right: RecordVal | null = await this.evaluateExpression(
         exp.right,
-        variables
+        variables,
+        record,
       );
       if (right === null) return null;
       return { type: "BOOL", value: String(!hasValue(right)) };
@@ -329,36 +408,31 @@ export class Runtime {
   private async evaluateValueScope(
     valueScope: ValueScopeNode,
     variables: VarMap,
-    pointer: number = 0
+    record: RecordTape,
+    pointer: number = 0,
   ): Promise<void> {
     let toAddToRecord: RecordVal[] = [];
     for (let valueVarOrFunction of valueScope.scope) {
       let value: RecordVal | null = await evaluateValVarFun(
         valueVarOrFunction,
         variables,
-        this.record,
+        record,
         valueScope.operator === "REPLACE_MATCH",
         this.errReporter,
         this.nameSpace,
-        this.baseDirectory
+        this.baseDirectory,
       );
       if (value === null) return;
       if (!valueVarOrFunction.push) continue;
       toAddToRecord.push(value);
     }
-    if (valueScope.operator === "REPLACE_MATCH") {
-      let addAtPointer = pointer;
-      for (let i = 0; i < toAddToRecord.length; i++) {
-        this.record.add(addAtPointer++, toAddToRecord[i]);
-      }
-    } else if (valueScope.operator === "PUSH_END_MATCH") {
-      toAddToRecord.forEach((val) => this.record.addLast(val));
-    } else if (valueScope.operator === "PUSH_BEGIN_MATCH") {
-      for (let i = toAddToRecord.length - 1; i >= 0; i--) {
-        this.record.addFirst(toAddToRecord[i]);
-      }
-    }
-    // Otherwise, it is a REMOVE_MATCH
+    // Modify the record with these new values based on scope operator (eg. >> to push values, !> to add nothing, ...)
+    this.modifyRecordWithRecordValues(
+      record,
+      valueScope.operator,
+      pointer,
+      toAddToRecord,
+    );
   }
 }
 
@@ -394,7 +468,7 @@ export async function evaluateValVarFun(
   mustBeSafe: boolean,
   errorReporter: ErrorReporter,
   nameSpace: Library,
-  baseDirectory: string
+  baseDirectory: string,
 ): Promise<RecordVal | null> {
   if (value.kind == "Value") {
     return toRecordVal(value);
@@ -403,7 +477,7 @@ export async function evaluateValVarFun(
       return errorReporter.throwErr(
         value.token,
         `Variable \`${value.name}\` is not defined`,
-        "300007"
+        "300007",
       );
     }
     return variables[value.name][variables[value.name].length - 1];
@@ -416,14 +490,14 @@ export async function evaluateValVarFun(
       return errorReporter.throwErr(
         errorToken,
         `Function \`${name}\` does not exist`,
-        "300003"
+        "300003",
       );
     const funObj: ModuleFunction = nameSpace[name];
     if (!funObj.safe && mustBeSafe)
       return errorReporter.throwErr(
         errorToken,
         `Function \`${name}\` is not a safe function and cannot be used in expressions or replacing value scopes (\`-> [ ... ]\`)`,
-        "300004"
+        "300004",
       );
     if (
       funObj.variadic
@@ -433,7 +507,7 @@ export async function evaluateValVarFun(
       return errorReporter.throwErr(
         errorToken,
         `Invalid number of parameters, function \`${name}\` must have ${funObj.variadic ? "at least" : ""} ${funObj.params.length} parameter${funObj.params.length !== 1 || funObj.variadic ? "s" : ""}`,
-        "300005"
+        "300005",
       );
     let runtimeContext = {
       record,
@@ -458,18 +532,15 @@ export async function evaluateValVarFun(
           mustBeSafe,
           errorReporter,
           nameSpace,
-          baseDirectory
+          baseDirectory,
         );
         if (newparam === null) return null;
         if (funObj.variadic && index >= funObj.params.length) {
-          if (
-            funObj.variadic != "ANY" &&
-            funObj.variadic !== newparam.type
-          )
+          if (funObj.variadic != "ANY" && funObj.variadic !== newparam.type)
             return errorReporter.throwErr(
               param.token,
               `Parameter ${index + 1} of \`${name}\` function must be a \`${funObj.variadic.toLowerCase()}\` type`,
-              "300006"
+              "300006",
             );
         } else if (
           funObj.params[index] !== "ANY" &&
@@ -478,7 +549,7 @@ export async function evaluateValVarFun(
           return errorReporter.throwErr(
             param.token,
             `Parameter ${index + 1} of \`${name}\` function must be a \`${funObj.params[index].toLowerCase()}\` type`,
-            "300006"
+            "300006",
           );
         }
         runparams.push(newparam);

@@ -7,7 +7,7 @@ import {
 import { notIntegerError, outOfRangeError } from "./utils/libraryErrors.js";
 import { RecordVal } from "./record.js";
 import { format, Library } from "./utils/libraryUtils.js";
-import readline from 'node:readline';
+import readline from "node:readline";
 import { setTimeout } from "node:timers/promises";
 
 export const StandardLibrary: Library = {
@@ -17,7 +17,7 @@ export const StandardLibrary: Library = {
     safe: true,
     lazy: false,
     run: async (params: RecordVal[], runContext: RunContext) => {
-      console.log(...params.map(x=>x.value));
+      console.log(...params.map((x) => x.value));
       return newRecordVal("NIL", "nil");
     },
   },
@@ -27,8 +27,14 @@ export const StandardLibrary: Library = {
     safe: true,
     lazy: false,
     run: async (params: RecordVal[], runContext: RunContext) => {
-      const str = format(0, 1, params, runContext.lazyparams, runContext.errorReporter)
-      if(str == null) return null
+      const str = format(
+        0,
+        1,
+        params,
+        runContext.lazyparams,
+        runContext.errorReporter,
+      );
+      if (str == null) return null;
       console.log(str);
       return newRecordVal("NIL", "nil");
     },
@@ -39,8 +45,14 @@ export const StandardLibrary: Library = {
     safe: true,
     lazy: false,
     run: async (params: RecordVal[], runContext: RunContext) => {
-      const str = format(0, 1, params, runContext.lazyparams, runContext.errorReporter)
-      if(str == null) return null
+      const str = format(
+        0,
+        1,
+        params,
+        runContext.lazyparams,
+        runContext.errorReporter,
+      );
+      if (str == null) return null;
       return newRecordVal("STR", str);
     },
   },
@@ -59,7 +71,7 @@ export const StandardLibrary: Library = {
     run: async (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal(
         "BOOL",
-        Number(params[0].value) < Number(params[1].value)
+        Number(params[0].value) < Number(params[1].value),
       );
     },
   },
@@ -70,7 +82,7 @@ export const StandardLibrary: Library = {
     run: async (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal(
         "BOOL",
-        Number(params[0].value) > Number(params[1].value)
+        Number(params[0].value) > Number(params[1].value),
       );
     },
   },
@@ -81,7 +93,7 @@ export const StandardLibrary: Library = {
     run: async (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal(
         "BOOL",
-        Number(params[0].value) <= Number(params[1].value)
+        Number(params[0].value) <= Number(params[1].value),
       );
     },
   },
@@ -92,7 +104,7 @@ export const StandardLibrary: Library = {
     run: async (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal(
         "BOOL",
-        Number(params[0].value) >= Number(params[1].value)
+        Number(params[0].value) >= Number(params[1].value),
       );
     },
   },
@@ -103,7 +115,8 @@ export const StandardLibrary: Library = {
     run: async (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal(
         "BOOL",
-        params[0].type === params[1].type && params[0].value === params[1].value
+        params[0].type === params[1].type &&
+          params[0].value === params[1].value,
       );
     },
   },
@@ -114,7 +127,8 @@ export const StandardLibrary: Library = {
     run: async (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal(
         "BOOL",
-        params[0].type !== params[1].type || params[0].value !== params[1].value
+        params[0].type !== params[1].type ||
+          params[0].value !== params[1].value,
       );
     },
   },
@@ -125,7 +139,7 @@ export const StandardLibrary: Library = {
     run: async (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal(
         "NUM",
-        Number(params[0].value) + Number(params[1].value)
+        Number(params[0].value) + Number(params[1].value),
       );
     },
   },
@@ -136,7 +150,7 @@ export const StandardLibrary: Library = {
     run: async (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal(
         "NUM",
-        Number(params[0].value) - Number(params[1].value)
+        Number(params[0].value) - Number(params[1].value),
       );
     },
   },
@@ -147,7 +161,7 @@ export const StandardLibrary: Library = {
     run: async (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal(
         "NUM",
-        Number(params[0].value) * Number(params[1].value)
+        Number(params[0].value) * Number(params[1].value),
       );
     },
   },
@@ -158,7 +172,7 @@ export const StandardLibrary: Library = {
     run: async (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal(
         "NUM",
-        Number(params[0].value) / Number(params[1].value)
+        Number(params[0].value) / Number(params[1].value),
       );
     },
   },
@@ -169,7 +183,7 @@ export const StandardLibrary: Library = {
     run: async (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal(
         "NUM",
-        Math.floor(Number(params[0].value) / Number(params[1].value))
+        Math.floor(Number(params[0].value) / Number(params[1].value)),
       );
     },
   },
@@ -180,7 +194,7 @@ export const StandardLibrary: Library = {
     run: async (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal(
         "NUM",
-        Number(params[0].value) % Number(params[1].value)
+        Number(params[0].value) % Number(params[1].value),
       );
     },
   },
@@ -196,7 +210,7 @@ export const StandardLibrary: Library = {
         runContext.mustBeSafe,
         runContext.errorReporter,
         runContext.nameSpace,
-        runContext.baseDirectory
+        runContext.baseDirectory,
       );
       if (condition === null) return null;
       if (hasValue(condition)) {
@@ -207,7 +221,7 @@ export const StandardLibrary: Library = {
           runContext.mustBeSafe,
           runContext.errorReporter,
           runContext.nameSpace,
-        runContext.baseDirectory
+          runContext.baseDirectory,
         );
       } else {
         return await evaluateValVarFun(
@@ -217,7 +231,7 @@ export const StandardLibrary: Library = {
           runContext.mustBeSafe,
           runContext.errorReporter,
           runContext.nameSpace,
-        runContext.baseDirectory
+          runContext.baseDirectory,
         );
       }
     },
@@ -234,7 +248,7 @@ export const StandardLibrary: Library = {
         runContext.mustBeSafe,
         runContext.errorReporter,
         runContext.nameSpace,
-        runContext.baseDirectory
+        runContext.baseDirectory,
       );
       if (left === null) return null;
       if (hasValue(left)) {
@@ -247,7 +261,7 @@ export const StandardLibrary: Library = {
           runContext.mustBeSafe,
           runContext.errorReporter,
           runContext.nameSpace,
-        runContext.baseDirectory
+          runContext.baseDirectory,
         );
       }
     },
@@ -264,7 +278,7 @@ export const StandardLibrary: Library = {
         runContext.mustBeSafe,
         runContext.errorReporter,
         runContext.nameSpace,
-        runContext.baseDirectory
+        runContext.baseDirectory,
       );
       if (left === null) return null;
       if (hasValue(left)) {
@@ -275,7 +289,7 @@ export const StandardLibrary: Library = {
           runContext.mustBeSafe,
           runContext.errorReporter,
           runContext.nameSpace,
-        runContext.baseDirectory
+          runContext.baseDirectory,
         );
       } else {
         return left;
@@ -317,11 +331,11 @@ export const StandardLibrary: Library = {
   },
   join: {
     params: ["STR", "STR"],
-    variadic:"STR",
+    variadic: "STR",
     safe: true,
     lazy: false,
     run: async (params: RecordVal[], runContext: RunContext) => {
-      return newRecordVal("STR", params.map(x=>x.value).join(""));
+      return newRecordVal("STR", params.map((x) => x.value).join(""));
     },
   },
   is_str: {
@@ -338,6 +352,17 @@ export const StandardLibrary: Library = {
     lazy: false,
     run: async (params: RecordVal[], runContext: RunContext) => {
       return newRecordVal("BOOL", params[0].type === "NUM");
+    },
+  },
+  is_int: {
+    params: ["ANY"],
+    safe: true,
+    lazy: false,
+    run: async (params: RecordVal[], runContext: RunContext) => {
+      return newRecordVal(
+        "BOOL",
+        params[0].type === "NUM" && Number.isInteger(Number(params[0].value)),
+      );
     },
   },
   is_term: {
@@ -433,7 +458,7 @@ export const StandardLibrary: Library = {
         return notIntegerError(
           runContext.errorReporter,
           runContext.lazyparams[0].token,
-          "get"
+          "get",
         );
       const result = runContext.record.get(num);
       if (result == null)
@@ -442,7 +467,7 @@ export const StandardLibrary: Library = {
           runContext.lazyparams[0].token,
           num,
           runContext.record.size(),
-          "get"
+          "get",
         );
       return result;
     },
@@ -453,8 +478,7 @@ export const StandardLibrary: Library = {
     safe: false,
     lazy: false,
     run: async (params: RecordVal[], runContext: RunContext) => {
-      for(let param of params)
-        runContext.record.addLast(param);
+      for (let param of params) runContext.record.addLast(param);
       return newRecordVal("NIL", "nil");
     },
   },
@@ -464,8 +488,7 @@ export const StandardLibrary: Library = {
     safe: false,
     lazy: false,
     run: async (params: RecordVal[], runContext: RunContext) => {
-      for(let param of params.reverse())
-        runContext.record.addFirst(param);
+      for (let param of params.reverse()) runContext.record.addFirst(param);
       return newRecordVal("NIL", "nil");
     },
   },
@@ -499,7 +522,7 @@ export const StandardLibrary: Library = {
         return notIntegerError(
           runContext.errorReporter,
           runContext.lazyparams[1].token,
-          "insert"
+          "insert",
         );
       const result = runContext.record.add(num, params[0]);
       if (!result)
@@ -508,7 +531,7 @@ export const StandardLibrary: Library = {
           runContext.lazyparams[1].token,
           num,
           runContext.record.size(),
-          "insert"
+          "insert",
         );
       return params[0];
     },
@@ -532,14 +555,14 @@ export const StandardLibrary: Library = {
         runContext.errorReporter.pushErr(
           runContext.lazyparams[0].token,
           `Parameter for \`random\` function must be an integer`,
-          "400001"
+          "400001",
         );
       const num2 = Number(params[1].value);
       if (!Number.isInteger(num2))
         runContext.errorReporter.pushErr(
           runContext.lazyparams[1].token,
           `Parameter for \`random\` function must be an integer`,
-          "400001"
+          "400001",
         );
       if (runContext.errorReporter.hasError())
         return runContext.errorReporter.throwAllErrs();
@@ -547,40 +570,39 @@ export const StandardLibrary: Library = {
       const max = Math.max(num1, num2);
       return newRecordVal(
         "NUM",
-        Math.floor(Math.random() * (max - min + 1)) + min
+        Math.floor(Math.random() * (max - min + 1)) + min,
       );
     },
   },
   input: {
-  params: ["STR"],
-  safe: false,
-  lazy: false,
-  run: async (params: RecordVal[], runContext: RunContext) => {
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-    });
-
-    const prompt = params[0].value;
-
-    // Wrap question() in a Promise
-    const answer = await new Promise<string>((resolve) => {
-      rl.question(prompt, (ans) => {
-        rl.close();
-        resolve(ans);
+    params: ["STR"],
+    safe: true,
+    lazy: false,
+    run: async (params: RecordVal[], runContext: RunContext) => {
+      const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
       });
-    });
 
-    return newRecordVal("STR", answer);
+      const prompt = params[0].value;
+
+      // Wrap question() in a Promise
+      const answer = await new Promise<string>((resolve) => {
+        rl.question(prompt, (ans) => {
+          rl.close();
+          resolve(ans);
+        });
+      });
+      return newRecordVal("STR", answer);
+    },
   },
-},
-wait: {
-  params: ["NUM"],
-  safe: false,
-  lazy: false,
-  run: async (params: RecordVal[], runContext: RunContext) => {
-    await setTimeout(Number(params[0].value));
-    return newRecordVal("NIL", "nil");
+  wait: {
+    params: ["NUM"],
+    safe: true,
+    lazy: false,
+    run: async (params: RecordVal[], runContext: RunContext) => {
+      await setTimeout(Number(params[0].value));
+      return newRecordVal("NIL", "nil");
+    },
   },
-},
 };

@@ -1,6 +1,5 @@
 import { ValueType } from "./node.js";
-// NOTE, WE SHOULD HAVE OTHER RECORD STATIC METHODS HERE LIEKLY
-// NOTE, WE NEED TO UPDAGE STIBLIB FUNCTIONS TOO
+
 export interface RecordVal {
   type: ValueType;
   value: string;
@@ -136,5 +135,13 @@ export class RecordTape {
     let tempArr = this.front;
     this.front = this.back;
     this.back = tempArr;
+  }
+
+  static clone(record: RecordTape) {
+    let newRecord = new RecordTape()
+    record.getRecord().forEach((val:RecordVal) => {
+      newRecord.addLast({...val})
+    })
+    return newRecord;
   }
 }

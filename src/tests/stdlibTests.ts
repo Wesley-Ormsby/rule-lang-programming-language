@@ -1,6 +1,7 @@
 import { Term, test } from "./testRunner.js";
 
 export async function runStandardLibraryTests() {
+  console.log("Running standard library tests...")
   await test(
   `type`,
   `begin >> [type(0) type("this") type(Term) type(true) type(nil)]`,
@@ -72,6 +73,7 @@ await test(`is_num`, `begin >> [ is_num(1) is_num("1") ]`, [true, false], []);
 await test(`is_term`, `begin >> [ is_term(Term) is_term(1) ]`, [true, false], []);
 await test(`is_bool`, `begin >> [ is_bool(true) is_bool(1) ]`, [true, false], []);
 await test(`is_nil`, `begin >> [ is_nil(nil) is_nil(1) ]`, [true, false], []);
+await test(`is_int`, `begin >> [ is_int("1") is_int(1) is_int(2.0) is_int(2.1) ]`, [false, true, true, false], []);
 await test(
   `to_term`,
   `begin >> [ to_term("") to_term("a") to_term("Afa f") to_term(" My_Term ") ]`,

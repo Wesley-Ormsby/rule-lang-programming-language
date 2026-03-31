@@ -8,6 +8,8 @@ import {
   type PatternNode,
   type ValueType,
   type Node,
+  ScopeModifier,
+  ExpressionBranch,
 } from "./node.js";
 import { ErrorInfo, ErrorReporter } from "./error.js";
 import { LIBRARIES, Library } from "./utils/libraryUtils.js";
@@ -62,9 +64,6 @@ export class Parser {
       this.errReporter.throwAllErrs();
       this.ast = null;
     }
-
-    // Pretty Print
-    // if(this.ast != null) this.prettyPrint(this.ast)
   }
 
   private peek(type: TT): boolean {
@@ -114,13 +113,37 @@ export class Parser {
     throw new ParseError(this.tokenList[this.pos], message, code);
   }
 
+  private parseScope(): ScopeNode | null {
+    if (
+      this.peekArr([
+        "REMOVE_MATCH",
+        "PUSH_END_MATCH",
+        "PUSH_BEGIN_MATCH",
+        "REPLACE_MATCH",
+      ])
+    ) {
+      if (
+        this.pos + 1 < this.tokenList.length &&
+        !["NEW", "CLONE"].includes(this.tokenList[this.pos + 1].type)
+      ) {
+        return this.parseValueScope();
+      }
+    }
+    return this.parseRuleScope(true);
+  }
+
   private parseRuleScope(needsSquareBrackets: boolean): ScopeNode | null {
+    let modifier: ScopeModifier = null;
+    let operator: TT = "RULE_MATCH";
     if (needsSquareBrackets) {
-      this.next(); // remove `=>`
+      operator = this.next().type; // remove pattern operator eg. => or >>
+      if (this.peekArr(["NEW", "CLONE"])) {
+        modifier = this.next().type as ScopeModifier;
+      }
       this.expect(
         "LEFT_SQUARE",
         `Expected \`[\` to start the rule scope`,
-        "200002"
+        "200002",
       );
     }
     const begin: ScopeNode[] | null = this.parseBeginOrEnd("BEGIN");
@@ -130,15 +153,15 @@ export class Parser {
       this.expect(
         "RIGHT_SQUARE",
         `Expected \`]\` to end the rule scope`,
-        "200003"
+        "200003",
       );
     } else {
       this.expect("EOF", `Unexpected token`, "200001");
     }
 
-    return { kind: "RuleScope", customs, begin, end };
+    return { kind: "RuleScope", modifier, customs, operator, begin, end };
   }
-  private parseValueScope(variables: Array<string | null>): ScopeNode | null {
+  private parseValueScope(): ScopeNode | null {
     // -> Value or -> [ ... ]
     const operator = this.next();
     const scope: ValueOrFunctionNode[] = [];
@@ -152,7 +175,7 @@ export class Parser {
       this.expect(
         "RIGHT_SQUARE",
         `Expected \`]\` to end the value scope`,
-        "200004"
+        "200004",
       ); // remove `]`
     } else {
       const value = this.parseValueOrFunction(true);
@@ -160,7 +183,7 @@ export class Parser {
         throw new ParseError(
           this.next(),
           `Expected value or scope after match operator \`${operator.lexeme}\``,
-          "200006"
+          "200006",
         );
       scope.push(value);
     }
@@ -175,7 +198,7 @@ export class Parser {
       if (this.peek("REPLACE_MATCH")) {
         this.throwErrOnCurrentToken(
           `Replacing match operator (\`->\`) is invalid for the \`${beginOrEnd.toLocaleLowerCase()}\` pattern`,
-          "200007"
+          "200007",
         );
       }
       while (
@@ -187,20 +210,14 @@ export class Parser {
         ])
       ) {
         hasScope = true;
-        if (this.peek("RULE_MATCH")) {
-          let parsedScope: ScopeNode | null = this.parseRuleScope(true);
-          if (parsedScope === null) return null;
-          scopes.push(parsedScope);
-        } else {
-          let parsedScope: ScopeNode | null = this.parseValueScope([]);
-          if (parsedScope === null) return null;
-          scopes.push(parsedScope);
-        }
+        let parsedScope: ScopeNode | null = this.parseScope();
+        if (parsedScope === null) return null;
+        scopes.push(parsedScope);
       }
       if (!hasScope) {
         this.throwErrOnCurrentToken(
           `Expected match operator after \`${beginOrEnd.toLocaleLowerCase()}\` pattern`,
-          "200008"
+          "200008",
         );
       }
       return scopes;
@@ -210,7 +227,7 @@ export class Parser {
   }
 
   private parseValueOrFunction(
-    canHaveNot: boolean
+    canHaveNot: boolean,
   ): ValueOrFunctionNode | null {
     // Parse Not if neccessary (in value scope)
     let add = true;
@@ -227,7 +244,7 @@ export class Parser {
       let value = token.lexeme;
       if (token.type === "NUM") {
         value = String(Number(token.lexeme));
-      } else if(token.type == "STR") {
+      } else if (token.type == "STR") {
         value = token.lexeme.substring(1, token.lexeme.length - 1); // remove quotes
       }
       this.next(); // Remove value token
@@ -253,7 +270,7 @@ export class Parser {
         this.expect(
           "RIGHT_PREN",
           `Expected \`)\` to end the function call`,
-          "200009"
+          "200009",
         );
         return {
           kind: "Function",
@@ -269,7 +286,7 @@ export class Parser {
     if (!add)
       this.throwErrOnCurrentToken(
         `Expected value after \`!\` in the value scope`,
-        "200010"
+        "200010",
       );
     return null;
   }
@@ -277,59 +294,81 @@ export class Parser {
   private parseCustomRules(): RuleNode[] | null {
     let rules: RuleNode[] = [];
     while (true) {
-      // Parse Ruels
+      // Parse Rules
       let pattern: RecursivePatternReturn | null = this.parsePattern(
         [],
         [],
         false,
-        false
+        false,
       );
       if (pattern == null) break;
-      let ifExpression: ExprNode | null = null;
-      if (this.peek("IF")) {
-        this.next(); // remove `if`
-        ifExpression = this.parseExpression(null, null, false);
-        if (ifExpression === null)
-          this.throwErrOnCurrentToken(
-            `Expected expression after \`if\``,
-            "200011"
-          );
-      }
-      let scopes: ScopeNode[] = [];
-      if (this.peek("REPLACE_MATCH")) {
-        let parsedScope: ScopeNode | null = this.parseValueScope(pattern.as);
-        if (parsedScope === null) return null;
-        scopes.push(parsedScope);
-      }
-      while (
-        this.peekArr([
-          "REMOVE_MATCH",
-          "RULE_MATCH",
-          "PUSH_END_MATCH",
-          "PUSH_BEGIN_MATCH",
-        ])
-      ) {
-        let parsedScope: ScopeNode | null = null;
-        if (this.peek("RULE_MATCH")) {
-          parsedScope = this.parseRuleScope(true);
+
+      const branches: ExpressionBranch[] = [];
+
+      // Parse IF/ELIF/ELSE chains attached to the pattern
+      let branch: "IF" | "ELIF" | "ELSE" = "IF";
+      while (branch != "ELSE") {
+        let expression: ExprNode | null = null;
+        if (branch == "IF" && this.peek("IF")) {
+          this.next(); // remove `if`
+          expression = this.parseExpression(null, null, false);
+          if (expression === null)
+            this.throwErrOnCurrentToken(
+              `Expected expression after \`if\``,
+              "200011",
+            );
+          branch = "ELIF";
+        } else if (branch == "ELIF") {
+          if (this.peek("ELIF")) {
+            this.next(); // remove `elif`
+            expression = this.parseExpression(null, null, false);
+            if (expression === null)
+              this.throwErrOnCurrentToken(
+                `Expected expression after \`elif\``,
+                "200011",
+              );
+          } else if (this.peek("ELSE")) {
+            this.next(); // remove `else`
+            branch = "ELSE";
+          } else {
+            break; // No more ELIFs or ELSE, so the chain is done
+          }
         } else {
-          parsedScope = this.parseValueScope(pattern.as);
+          branch = "ELSE"; // No IF/ELIF/ELSE chain
         }
-        if (parsedScope === null) return null;
-        scopes.push(parsedScope);
+
+        // Parse scope chains attached to pattern or if/elif/else chain
+        let scopes: ScopeNode[] = [];
+        if (this.peek("REPLACE_MATCH")) {
+          let parsedScope: ScopeNode | null = this.parseScope();
+          if (parsedScope === null) return null;
+          scopes.push(parsedScope);
+        }
+        while (
+          this.peekArr([
+            "REMOVE_MATCH",
+            "RULE_MATCH",
+            "PUSH_END_MATCH",
+            "PUSH_BEGIN_MATCH",
+          ])
+        ) {
+          let parsedScope: ScopeNode | null = this.parseScope();
+          if (parsedScope === null) return null;
+          scopes.push(parsedScope);
+        }
+        if (scopes.length === 0)
+          this.throwErrOnCurrentToken(
+            `Expected rule operator after the pattern`,
+            "200012",
+          );
+        branches.push({scopes,condition:expression})
       }
-      if (scopes.length === 0)
-        this.throwErrOnCurrentToken(
-          `Expected rule operator after the pattern`,
-          "200012"
-        );
       rules.push({
-        kind: "Rule",
-        pattern: { kind: "PatternGroup", patterns: pattern.patternValues },
-        expression: ifExpression,
-        scopes,
-        variables: pattern.as,
-      });
+          kind: "Rule",
+          pattern: { kind: "PatternGroup", patterns: pattern.patternValues },
+          branches,
+          variables: pattern.as,
+        });
     }
 
     return rules;
@@ -338,7 +377,7 @@ export class Parser {
     patternValues: PatternNode[],
     as: Array<string | null>,
     inOr: boolean,
-    notLookAhead: boolean
+    notLookAhead: boolean,
   ): RecursivePatternReturn | null {
     let patternValue: PatternNode;
     // Traditional Values
@@ -358,6 +397,8 @@ export class Parser {
       const token = this.next();
       if (token.type === "NUM") {
         token.lexeme = String(Number(token.lexeme));
+      } else if(token.type == "STR") {
+        token.lexeme = token.lexeme.substring(1, token.lexeme.length - 1); // remove quotes
       }
       patternValue = {
         kind: "Value",
@@ -385,25 +426,25 @@ export class Parser {
       if (notLookAhead)
         this.throwErrOnCurrentToken(
           `Expected pattern value after \`!\` in the pattern, not a group`,
-          "200013"
+          "200013",
         );
       this.next(); // remove `(`
       let pattern: RecursivePatternReturn | null = this.parsePattern(
         [],
         [],
         inOr,
-        false
+        false,
       );
       if (pattern == null)
         throw new ParseError(
           this.next(),
           `Expected pattern value in the pattern group`,
-          "200014"
+          "200014",
         );
       this.expect(
         "RIGHT_PREN",
         `Expected \`)\` to end the pattern group`,
-        "200015"
+        "200015",
       );
       patternValue = { kind: "PatternGroup", patterns: pattern.patternValues };
       as = as.concat(pattern.as);
@@ -411,7 +452,7 @@ export class Parser {
       if (notLookAhead)
         this.throwErrOnCurrentToken(
           `Expected pattern value after \`!\` in pattern`,
-          "200016"
+          "200016",
         );
       return null;
     }
@@ -432,7 +473,7 @@ export class Parser {
       if (!as.every((el) => el == null)) {
         this.throwErrOnCurrentToken(
           `The \`|\` pattern operator cannot be combined with \`as\` within the same group`,
-          "200017"
+          "200017",
         );
       }
       let orToken = this.next(); // remove `|`
@@ -440,19 +481,19 @@ export class Parser {
         [],
         [],
         true,
-        false
+        false,
       );
       if (this.errReporter.hasError()) return null;
       if (pattern == null)
         this.throwErrOnCurrentToken(
           `Expected pattern value(s) to the right of the \`|\` pattern operator`,
-          "200018"
+          "200018",
         );
       if (as.length != pattern?.as.length)
         throw new ParseError(
           orToken,
           `The left side of the \`|\` pattern operator must have the same number of pattern values as right side`,
-          "200019"
+          "200019",
         );
       patternValues = [
         {
@@ -468,7 +509,7 @@ export class Parser {
       if (inOr)
         this.throwErrOnCurrentToken(
           `Cannot use \`as\` in the middle of the \`|\` condition`,
-          "200020"
+          "200020",
         );
       let identifiers: Token[] = [];
       this.next(); // remove `as`
@@ -480,12 +521,12 @@ export class Parser {
         if (identifiers.length === 0)
           this.throwErrOnCurrentToken(
             `Expected variable name(s) in \`as\` group`,
-            "200021"
+            "200021",
           );
         if (!this.peek("RIGHT_PREN"))
           this.throwErrOnCurrentToken(
             `Expected \`)\` to end \`as\` group`,
-            "200022"
+            "200022",
           );
         this.next(); // remove `)`
       } else if (this.peek("IDENTIFIER")) {
@@ -493,7 +534,7 @@ export class Parser {
       } else {
         this.throwErrOnCurrentToken(
           `Expected variable name or group of variable names after \`as\``,
-          "200023"
+          "200023",
         );
       }
       let lastVarIndex = -1;
@@ -513,14 +554,14 @@ export class Parser {
             throw new ParseError(
               identifier,
               `Variable \`${identifier.lexeme}\` is already declared in the pattern`,
-              "200024"
+              "200024",
             );
           as[index] = identifier.lexeme;
         } else {
           throw new ParseError(
             identifier,
             `Too many variables for the number of pattern values`,
-            "200025"
+            "200025",
           );
         }
         index += 1;
@@ -544,7 +585,7 @@ export class Parser {
   private parseExpression(
     left: ExprNode | null = null,
     operator: Token | null = null,
-    returnNotValue: boolean
+    returnNotValue: boolean,
   ): ExprNode | null {
     let expression: ExprNode;
     if (this.peek("NOT")) {
@@ -554,7 +595,7 @@ export class Parser {
         throw new ParseError(
           this.next(),
           `Expected value after \`!\` operator`,
-          "200026"
+          "200026",
         );
       expression = {
         kind: "NotExpr",
@@ -568,7 +609,7 @@ export class Parser {
         throw new ParseError(
           this.next(),
           `Expected expression after \`(\``,
-          "200027"
+          "200027",
         );
       expression = innerExp;
       this.expect("RIGHT_PREN", `Expected \`)\` to end expression`, "200028");
@@ -608,7 +649,7 @@ export class Parser {
           if (returnExp === null)
             this.throwErrOnCurrentToken(
               `Expected expression after \`${nextOperator.lexeme}\` expression operator`,
-              "200029"
+              "200029",
             );
           return returnExp;
         } else {
@@ -618,7 +659,7 @@ export class Parser {
             throw new ParseError(
               this.next(),
               `Expected expression after \`${nextOperator.lexeme}\` expression operator`,
-              "200029"
+              "200029",
             );
           return {
             kind: "BinaryExpr",
@@ -634,7 +675,7 @@ export class Parser {
         if (returnExp === null)
           this.throwErrOnCurrentToken(
             `Expected expression after \`${nextOperator.lexeme}\` expression operator`,
-            "200029"
+            "200029",
           );
         return returnExp;
       }
@@ -663,7 +704,6 @@ export class Parser {
   }
 
   private toValType(token: Token): ValueType {
-    let type: ValueType;
     switch (token.type) {
       case "STR":
         return "STR";
@@ -707,7 +747,7 @@ export class Parser {
         this.expect(
           "LEFT_SQUARE",
           "Expected library name or `[` in import statement",
-          "200030"
+          "200030",
         );
         let tokenList: Token[] = [];
         while (this.peek("IDENTIFIER")) {
@@ -716,17 +756,17 @@ export class Parser {
         this.expect(
           "RIGHT_SQUARE",
           "Expected `]` to close function group in import statement",
-          "200031"
+          "200031",
         );
         this.expect(
           "FROM",
           "Expected `from` after function group in import statement",
-          "200032"
+          "200032",
         );
         const libraryToken = this.expect(
           "IDENTIFIER",
           "Expected library name after `from` in import statement",
-          "200033"
+          "200033",
         );
         if (importedLibs.has(libraryToken.lexeme)) {
           delayedErrors.push({
@@ -776,25 +816,25 @@ export class Parser {
       const identifier = this.expect(
         "IDENTIFIER",
         "Expected identifier for global variable name",
-        "200005"
+        "200005",
       );
       if (this.defs.hasOwnProperty(identifier.lexeme))
         return this.errReporter.throwErr(
           this.next(),
           `Duplicate global variable, \`${identifier.lexeme}\` has already been defined`,
-          "200040"
+          "200040",
         );
       this.expect(
         "ASSIGN",
         "Expected `:=` for global variable definition",
-        "200038"
+        "200038",
       );
       const val = this.parseValueOrFunction(false);
       if (val == null)
         return this.errReporter.throwErr(
           this.next(),
           "Expected value for global variable definition",
-          "200039"
+          "200039",
         );
       this.defs[identifier.lexeme] = val;
     }

@@ -24,9 +24,13 @@ const KEYWORDS: Record<string, TT> = {
   end: "END",
   as: "AS",
   if: "IF",
+  elif: "ELIF",
+  else: "ELSE",
   import: "IMPORT",
   from: "FROM",
   def: "DEF",
+  new: "NEW",
+  clone: "CLONE"
 };
 
 export class Lexer {

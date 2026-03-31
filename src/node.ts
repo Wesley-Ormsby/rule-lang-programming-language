@@ -4,6 +4,7 @@ export type Node = RuleNode | ScopeNode | ValueOrFunctionNode | PatternNode | Ex
 export type ScopeNode = ValueScopeNode | RuleScopeNode;
 export type ValueOrFunctionNode = ValueNode | FunctionNode | VariableNode;
 export type ValueType = "STR" | "NUM" | "BOOL" | "NIL" | "TERM" | "ANY";
+export type ScopeModifier = "CLONE" | "NEW" | null
 export type PatternNode =
   | ValueNode
   | PatternTypeNode
@@ -16,11 +17,14 @@ export type ExprNode =
   | NotExprNode;
 
 /* RULES + SCOPES */
+export interface ExpressionBranch {
+  condition: ExprNode | null,
+  scopes: ScopeNode[];
+}
 export interface RuleNode {
   kind: "Rule";
   pattern: PatternGroupNode;
-  expression: ExprNode | null;
-  scopes: ScopeNode[];
+  branches: ExpressionBranch[]
   variables: Array<string | null>;
 }
 export interface ValueScopeNode {
@@ -30,6 +34,8 @@ export interface ValueScopeNode {
 }
 export interface RuleScopeNode {
   kind: "RuleScope";
+  operator: TT;
+  modifier: ScopeModifier;
   customs: RuleNode[] | null;
   begin: ScopeNode[] | null;
   end: ScopeNode[] | null;

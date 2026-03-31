@@ -1,6 +1,7 @@
 import { Term, test } from "./testRunner.js";
 
 export async function runRuntimeTests() {
+  console.log("Running runtime tests...")
   // Imports
 await test(
   "Importing multiple functions from library [importing only some functions from library]",
@@ -244,6 +245,7 @@ await test(
   [5, 5],
   []
 );
+await test(`matching strings`, `begin >> [ "a" "bb" "b"] "a" -> 1 "bb" -> 2 `, [1, 2, "b"], [])
 /* Expression Operators */
 await test(
   `Less Than, case 1: x < y`,
@@ -366,13 +368,13 @@ await test(
   []
 );
 await test(
-  `And, case 1: left has value`,
+  `And, case 1: left is truthy`,
   `begin >> [false] false if 1 & 0 -> true`,
   [false],
   []
 );
 await test(
-  `And, case 2: right has value`,
+  `And, case 2: right is truthy`,
   `begin >> [false] false if 0 & 1 -> true`,
   [false],
   []
@@ -390,13 +392,13 @@ await test(
   []
 );
 await test(
-  `Or, case 1: left has value`,
+  `Or, case 1: left is truthy`,
   `begin >> [false] false if 1 | 0 -> true`,
   [true],
   []
 );
 await test(
-  `Or, case 2: right has value`,
+  `Or, case 2: right is truthy`,
   `begin >> [false] false if 0 | 1 -> true`,
   [true],
   []
@@ -414,13 +416,13 @@ await test(
   []
 );
 await test(
-  `Not, case 1: right has value`,
+  `Not, case 1: right is truthy`,
   `begin >> [false] false if !1 -> true`,
   [false],
   []
 );
 await test(
-  `Not, case 2: right does not have value`,
+  `Not, case 2: right is falsy`,
   `begin >> [false] false if !0 -> true`,
   [true],
   []
@@ -432,31 +434,31 @@ await test(
   [true],
   []
 );
-/* Has Value */
-await test(`Str has Value`, `begin >> [false] false if "1" -> true`, [true], []);
+/* Truthy */
+await test(`Str is truthy`, `begin >> [false] false if "1" -> true`, [true], []);
 await test(
-  `Str does not have Value`,
+  `Str is falsy`,
   `begin >> [false] false if "" -> true`,
   [false],
   []
 );
-await test(`Num has Value`, `begin >> [false] false if 7 -> true`, [true], []);
+await test(`Num is truthy`, `begin >> [false] false if 7 -> true`, [true], []);
 await test(
-  `Num does not have Value`,
+  `Num is falsy`,
   `begin >> [false] false if 0 -> true`,
   [false],
   []
 );
-await test(`Bool has Value`, `begin >> [false] false if true -> true`, [true], []);
+await test(`Bool is truthy`, `begin >> [false] false if true -> true`, [true], []);
 await test(
-  `Bool does not have Value`,
+  `Bool is falsy`,
   `begin >> [false] false if false -> true`,
   [false],
   []
 );
-await test(`Term has Value`, `begin >> [false] false if Term -> true`, [true], []);
+await test(`Term is truthy`, `begin >> [false] false if Term -> true`, [true], []);
 await test(
-  `Nil does not have Value`,
+  `Nil is falsy`,
   `begin >> [false] false if nil -> true`,
   [false],
   []
@@ -472,6 +474,82 @@ await test(
   `Down then across rule matching with nested rule scope`,
   `begin >> [ 1 2 Three_Ones ] 1 => [ num -> "NUMBER" ] Three_Ones -> [ 1 1 1 ]`,
   ["NUMBER", "NUMBER", "NUMBER"],
+  []
+);
+/* Record Scoping */
+await test(
+  `Pushing match with \`new\` modifier`,
+  `begin >> [ 1 2 3 ] >> new [ begin >> [5 !push_begin(4) 6]]`,
+  [1, 2, 3, 4, 5, 6],
+  []
+);
+await test(
+  `Pushing match with \`clone\` modifier`,
+  `begin >> [ 1 2 3 ] >> clone [ begin >> [!pop() "THREE" ]]`,
+  [1, 2, 3, 1, 2, "THREE"],
+  []
+);
+await test(
+  `Replacing match with \`clone\` modifier and multiple rules`,
+  `begin >> [ 1 2 3 4] 
+   2 3 -> clone [ 
+     begin >> [5 6 7]
+     num as x -> to_str(x)
+   ]`,
+  [1, "1", "4", "5", "6", "7", 4],
+  []
+);
+await test(
+  `Rule match with \`clone\` modifier`,
+  `begin >> [ 1 2 3 ]
+   2 => clone [
+      begin >> [ 5 7]
+      num num as (x y) >> add(x y)
+   ]`,
+  [1, 3],
+  []
+);
+/* If/Elif/Else chains */
+await test(
+  `If followed by \`else\``,
+  `begin >> [ 1 5 ]
+   num as x
+     if x < 5 >> "LESS"
+     else >> "GREATER" >> "OR_EQUAL"`,
+  ["LESS", "GREATER", "OR_EQUAL"],
+  []
+);
+await test(
+  `If followed by \`elif\``,
+  `begin >> [ 1 5 6 ]
+   num as x
+     if x < 5 >> "LESS"
+     elif x = 5 >> "EQUAL"
+   num >> "GREATER"`,
+  ["LESS", "EQUAL", "GREATER"],
+  []
+);
+await test(
+  `If followed by multiple \`elif\`s`,
+  `begin >> [ 1 5 6 7 ]
+   num as x
+     if x < 5 >> "LESS"
+     elif x = 5 >> "FIVE"
+     elif x = 6 >> "SIX"
+   num >> "GREATER"`,
+  ["LESS", "FIVE", "SIX", "GREATER"],
+  []
+);
+await test(
+  `If followed by multiple \`elif\`s, then an \`else\``,
+  `begin >> [ 1 5 6 7 ]
+   num as x
+     if x < 5 >> "LESS"
+     elif x = 5 >> "FIVE"
+     elif x = 6 >> "SIX"
+     else >> "GREATER"
+   num >> "ERROR"`,
+  ["LESS", "FIVE", "SIX", "GREATER"],
   []
 );
 }
