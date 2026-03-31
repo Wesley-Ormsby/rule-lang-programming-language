@@ -1,0 +1,34 @@
+import [ math_pow math_sqrt ] from math
+
+begin 
+  # Populate the record with numbers
+  => [
+        begin >> Input
+        Input nil !> nil # The loop will end when the user enters an invalid number (like 'done')
+        Input 
+          << [ Input to_num(input("Enter a number or 'done' to stop: "))]
+      ]
+
+  # Find the average
+  << clone [
+    begin >> [ Avg size() ]
+    num as x num as y -> add(x y)
+    num as sum Avg num as count >> div(sum count)
+
+    end << Dif
+  ]
+
+  # Get the squared distance of each data point to the average
+  => [
+    Dif num as avg num as dataPoint -> [ math_pow(sub(dataPoint avg) 2) Dif avg]
+    Dif num !> nil
+  ]
+
+  # Sum the squared distances, divide the sum by n, and square root to find standard deviation
+  => [
+    begin >> [Size size()]
+    num as x num as y -> add(x y)
+    num as sum Size num as n >> math_sqrt(div(sum n))
+  ]
+
+num as x !> print("The (population) standard deviation is " x)

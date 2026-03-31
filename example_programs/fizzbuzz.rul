@@ -1,9 +1,8 @@
 begin >> 1
 
-num as x if x <= 100 & mod(x 15) = 0 >> [ add(x 1) !print("FizzBuzz")]
-num as x if x <= 100 & mod(x 3) = 0  >> [ add(x 1) !print("Fizz")] 
-num as x if x <= 100 & mod(x 5) = 0  >> [ add(x 1) !print("Buzz")] 
-num as x if x <= 100                 >> [ add(x 1) !print(x)] 
-
-num !> [] # Remove the last number from the record
-          # Although not necessary, this is good practice
+num as x 
+    if x > 100         !> empty() # Stop the loop at 100 iterations
+    elif mod(x 15) = 0 >> [ add(x 1) !print("FizzBuzz")]
+    elif mod(x 3) = 0  >> [ add(x 1) !print("Fizz")] 
+    elif mod(x 5) = 0  >> [ add(x 1) !print("Buzz")] 
+    else               >> [ add(x 1) !print(x)] 

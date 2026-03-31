@@ -1,732 +1,1445 @@
-# RuleLang Docs
+# The RuleLang Programming Language
 
-RuleLang is an esoteric matching language with bizarre control flow. 
+***RuleLang is an esoteric matching language with bizarre control flow.***
+
+RuleLang subverts traditional paradigms and challenges the programmer to approach problems in a new ways; You need to navigate non-linear control flow and pay close attention to patterns to ensure proper execution and eventual termination. The language is based on the idea of [term rewriting](https://en.wikipedia.org/wiki/Rewriting) programming languages, which take some input and reduce it to the desired output though the application of rules.
+
+Here is a little taste of term rewriting. We begin with four numbers `1 1 1 1`, and we have three different rules that operate on this input. 
 
 ```py
-# fizzbuzz
-begin >> 1
-num as x if x <= 100 & mod(x 15) = 0 >> [ add(x 1) !print("FizzBuzz")]
-num as x if x <= 100 & mod(x 3) = 0 >> [ add(x 1) !print("Fizz")] 
-num as x if x <= 100 & mod(x 5) = 0 >> [ add(x 1) !print("Buzz")] 
-num as x if x <= 100 >> [ add(x 1) !print(x)] 
-num !> [] # Remove the last number from the record
-          # Although not necessary, this is good practice
-```
-> [!NOTE]
-> The code examples are highlighted in Python, so they might not be entirely accurate, but they are easier to understand.
-## Instillation for CLI
+begin >> [ 1 1 1 1 ]
 
+1 1 -> [ 2 ]
+2 2 -> [ 4 ]
+4 !> print("We bundled together some numbers to make a 4!")
+```
+
+- The first rule `1 1 -> [ 2 ]` states when we see the pattern `1 1` in the record, replace it with a `2`. 
+- The second rule `2 2 -> [ 4 ]` is similar, when we see the pattern `2 2` in the record, replace it with a `4`. 
+- The last rule will look for the pattern `4` and when it is found, it will print out a message.
+
+So when the program evaluates, the patterns are matched against the record, and the program ends when no matches are found. 
+
+1. We begin with four ones: `1 1 1 1`
+2. The first rule will match, replacing the first two ones with a `2`: `2 1 1` 
+3. The rule with match again, replacing the last ones with a `2`: `2 2`
+4. Now we have a match for the second rule, so the two twos will be replaced with a `4`:  `4`
+5. Finally, the third rule will match and display the message `We bundled together some numbers to make a 4!`
+
+As you see, this is a simple program where rule application order does not matter. We will go into detail about how rules are applied later in these tutorial-ish docs. 
+
+RuleLang is an experimental language, attempting to answer the question *how far can we take a term rewriting programming language?* It is next to useless for scripting or any traditional programming due its unique control flow which brings lethargy. However it provides an analytical challenge for programmers to solve problems in new ways.
+
+For now, here is a FizzBuzz program to exemplify more of RuleLang's syntax:
+
+```py
+num as x 
+    if x > 100         !> empty() # Stop the loop at 100 iterations
+    elif mod(x 15) = 0 >> [ add(x 1) !print("FizzBuzz")]
+    elif mod(x 3) = 0  >> [ add(x 1) !print("Fizz")] 
+    elif mod(x 5) = 0  >> [ add(x 1) !print("Buzz")] 
+    else               >> [ add(x 1) !print(x)] 
+```
+
+You can see more examples [here](/example_programs/).
+
+> [!NOTE]
+> The code examples are highlighted in Python, so highlighting will not be 100% accurate.
+
+## Getting Started
+
+You can download the command line interpreter from `npm`:
 ```
 npm i rule-lang-programming-language
 ```
-## Running Files via CLI
+
+Then run a RuleLang program using the `rule` command followed by the RuleLang file. Note that the interpreter restricts file extensions to `.rul` or `.txt`.
 
 ```
-# .rul is the file extention for a RuleLang program
 rule my_file.rul
 ```
 
+## RuleLang Basics
 
-## The Record
-
-Everything in RuleLang is built on the **record**, which is the only *true* storage for values. The **record** is a list of values. You can easily add values to the **record**, remove values, or loop throughout the **record**.
+RuleLang resolves around the Record, which is simply a list of values. When we find a Pattern in the Record, we will remove the Pattern and execute its corresponding Scope. The Scope can do many things like push values to the back of the record, replace the pattern with new values within the record, or even lead to a new subset of rules to match.
 
 ### Comments
 ```py
-# This is a comment
-#[
- Comments can be multi-
- line
-]#
+# This is a single-line comment
+# This is another single-line comment
+#[ 
+    This is a multi-line comment
+    See how it covers multiple lines?
+ ]#
 ```
-### Values
-There are five different types of primitive data types also known as **values** (for simplicity).
 
-#### Numbers (`num`)
-If a number is a decimal number less than 1, it must be prepended with a `0`. Negative numbers can prepended with `-` and no space in between characters.
+### Values
+
+There are five different types of values within RuleLang: numbers (`num`), strings (`str`), booleans (`bool`), terms (`term`), and nil (`nil`).
+
+#### Numbers (`num`) 
+Numbers are any positive, negative, or fractional number. If it is a decimal number less than 1, it must be prepending with a `0`. Negative numbers are prepended with a `-` and no space between characters.
+
 ```py
+# Valid
 1 
 1.2 
 0.4
 -0.6
+
+# Invalid
+.45
+- 23
 ```
 
 #### Strings (`str`)
-Strings are naturally multi-line, but they can be typed on a single line using escape codes.
+Strings represent a sequence of characters and are naturally multi-line, but they can be typed on a single line using escape codes.
 ```py
 "Hello, World"
 "Multi-
 Line
 String"
+"Multi-\nLine\nString"
 # Escape Codes:
-#   \" -> "
+#   \" -> "         
 #   \\ -> \
 #   \n -> new line 
 ```
 
 #### Booleans (`bool`)
-A boolean is either `true` (has value) or `false` (does not have value).
+A boolean is either `true` or `false` (not `true`).
 ```py
 true
 false
 ```
 
 #### Terms (`term`)
-A term is a word that starts with a capital letter and only contains alphanumeric characters and underlines. 
+A term is a word that starts with a capital letter and only contains alphanumeric characters and underlines.
 ```py
 Loop
 My_Term
 LOOP_TO_100
 ```
+Although strings can accomplish anything terms can, terms provide cleaner syntax for pattern matching. We could make a rule that duplicates a number in the record:
+```py
+"Duplicate" num as x -> [ x x ]
+```
+Then any number prepended by a `"Duplicate"` string will be doubled. But what if we have another rule that interacts with strings? Then the `"Duplicate"` indicator could be altered. Or what if we get some user input that adds `"Duplicate"` to the Record, messing up the program? Instead, we could use a term indicator, since terms are often more constant and not used in logic. 
+```py
+Duplicate num as x -> [ x x ]
+```
+
 #### Nil (`nil`)
 This value represents a failed result or no return value from a function. 
 ```py
 nil
 ```
 
-### Rules
-**Rules** are the main control flow of RuleLang. Each rule consists of a **pattern** that will be matched against the **record**. When a successful match occurs, the **rule**'s **scope(s)** will be evaluated in a way determined by the **match operator(s)**. All the parts of a **rule** will be explained below, and several examples tie together these concepts at the end.
+### Matching
+In this section, we will go over the basic control flow and how a RuleLang program works. In subsequent sections, we will expand on these concepts. A RuleLang program is made from a collection of Rules that execute when a match is found in the Record. 
 
-#### Pattern
-Think of a **pattern** as a key to the lock. Only a specific grove sequence will open the lock. Similarly, only a specific **pattern** will *match* the record.
+Each rule is composed of 4 basic components.
+- The **Pattern** is a sequence that is compared to the record to see if a match has occurred. The pattern will be removed from the record when the Rule matches, before the scopes execute.
+- The **Condition** is an optional addition to pattern. If a Rule's pattern matches, and its condition is met, then the Rule matches and some code is executed.
+- The **Scopes** are lists of values that will be inserted into the record or more rules to evaluate once a Rule matches.
+- The **Rule Operators** are attached to each scopes and determine *how* to evaluate the scope. For example, `->` replaces the pattern values with the scope values and `>>` pushes scope values to the end of the record.
 
-The RuleLang program is a big **rule scope**, a sequence of **rules** that continue attempting to *match* against the **record** until no more **patterns** match. The simplest **patterns** are `begin` and `end`. The `begin` pattern will automatically match when entering the **rule scope** before all other **patterns** attempt to match, and the `end` pattern will match when leaving the **rule scope** after all other **patterns** cease to match.
+Each **Rule Scope** (a fancy way to say a set of Rules that will be matching) can have two special patterns. A `begin` pattern is automatically matched as soon as the rule scope is entered. It is useful for setting up record data. The `end` rule executes after all other patterns have finished executing and no more matches occur in the record. It is often used to clean up the record or interact with the post-matching results.
 
-All other **patterns** are custom **patterns** that repeatably attempt to match against the record until there are no more matches.
+After the `begin` rule matches if the scope has one, Rule matching follows a specific sequence that makes up RuleLang's unique control flow. This sequence can be remembered with the mnemonic:
 
-##### Pattern Values
-Custom **patterns** are made of a sequence of **pattern values**. If each **pattern value** matches the **record** value it's compared to, a successful match has taken place!
+> Down then Across 
 
-A **pattern value** can simply be any value:
-```py
-false           # Matches a `false` in the record
-"Hello, World!" # Matches a `Hello, World!` in the record
-```
-A **pattern value** can also match any value of a type:
-```py
-num             # Matches any number in the record, like `5` or `2`
-str             # Matches any string in the record, like `Hello` or `World`
-term            # Matches any term in the record, like `Loop` or `If`
-bool            # Matches any boolean in the record, like `true` or `false`
-any             # Matches any value in the record of any type
-```
-**Patterns** can have multiple **pattern values** in a sequence.
-```py
-1 2          # Matches a `1` followed by a `2` in the record
-true any str # Matches a `true` followed by any value, and then a string
-```
-##### Logical Pattern Operators
-There are several **pattern operators** that can alter a **pattern value**.
-###### Not
-The **not** operator  (`!`) matches anything *but* the following pattern value.
-```py
-!1 # Matches any value but a `1` in the record, like `3` or `My_Term`
+Or...
 
-!str # Matches any value but a string in the record, like `1` or `false`
-```
+> Down the Rules, then Across the Record
 
-> [!WARNING]
-> You cannot have a sequence of **not**s, `!!!!7` is an error.
+1. First, we start with a **Pointer** that points to the first value of the record. The pointer just mean *"we are going to see if a match starts here."*
+2. Now, we go *down the Rules*. Sequentially in the order the Rules are defined, each rule will attempt to match against the record. As soon as a Rule matches, the Rule's scopes are evaluated, then we immediately skip the remainder of the Rules and return to step **1** with the pointer reset to the first position in the record.
+3. No rules matched at the current pointer position in the record. So, we go *across the record*, and shift the pointer to the next record value. We return to step **2** trying to find a Rule match from this new pointer position.
 
-###### Or
-The **or** operator  (`|`) matches one group of **pattern values** *or* the other group of **pattern values**. Each side of the **or** operator must have the same number of **pattern values**.
-```py
-1 | 2      # Matches `1` or `2` in the record
-num | str  # Matches any number or string in the record
-1 2 | 3    # Error! The left group has 2 pattern values, and the right has 1
-```
-Parenthesis can be used to make more complex patterns.
-```py
-1 2 | 3 4    # Matches `1` followed by `2`, or `3` followed by a `4` in the record
 
-# We can wrap the "or" in parenthesis to limit the pattern groups
+When no matches occur in a cycle across the full record (ie. the pointer gets to the end of the record without any matches), the `end` rule will evaluate, then the program terminates.
 
-1 (2 | 3) 4  # Matches `1`, followed by a `2` or `3`, followed by a 4 in the record
-```
-The **or** operator can be *chained*, so several **or**s can be used at once.
-```py
-1 | 2 | 3     # Matches `1` or `2` or `3` number in the record
+#### Food Chain
 
-# This simplifies to (1 | (2 | 3))
-```
-
-#### Rule Operator and Scope
-The second part of a rule, after the **pattern**, is the **rule operator(s)** and accompanying **scope(s)**. There are two different kinds of scopes: **rule scopes**, a list of rules, and **value scopes**, a list of values, both of which are surrounded by square brackets (`[ ... ]`). 
-
-> [!TIP]
-> A **value scope** could also be a single value without square brackets. Both of these are value scopes: `[ 1 2 3 ]` and `1`
-
-When a **pattern** successfully matches, the **pattern** will be removed from the **record** and the **rule operator** will determine what happens to the result of the scope.
-
-##### End Pushing Match (`>>`)
-The end-pushing match rule operator (`>>`) will add all values within the scope to the end of the record.
-```py
-begin >> [ 1 2 ]
-end >> [ 3 4 ]
-
-# Record Result: [ 1 2 3 4 ]
-```
-##### Beginning Pushing Match (`<<`)
-The beginning-pushing match rule operator (`<<`) will add all values within the scope to the start of the record.
-```py
-begin << [ 3 4 ]
-end << [ 1 2 ]
-
-# Record Result: [ 1 2 3 4 ]
-```
-##### Removing Match (`!>`)
-The removing match rule operator (`!>`) will not add any values from the scope to the record.
-```py
-begin !> [ 1 2 ]
-
-# Record Result: [ ]
-```
-##### Replacing Match (`->`)
-The replacing match rule operator (`->`) will add the values from the scope to the record at the index of where the pattern was removed. Therefore, the pattern in the record is replaced by the scope. 
+We will demonstrate this control flow through a food chain example. Lets say we have some flies, some frogs, and some snakes. The frogs want to eat the flies, and the snakes want to eat the frogs. Keeping it simple, lets say that all these animals are moving in a line from right to left in the record. This may seem backwards (*wouldn't it make more sense to go left to right?*), but it makes sense due to the order of matching. A `Frog` will eat a `Fly` when the `Fly` is directly in front of it in the record. Similarly a `Snake` will eat a `Frog` when the `Frog` is directly in front of it. Finally, when an animal finds its meal, it will take some time eating, so all the other animals will pass it (*Let's say the snakes are nice so they don't want to eat a frog while it is enjoying a meal*). We can make a simple program that simulates this scenario.
 
 ```py
-begin >> [ 1 2 3 4 ]
-2 3 -> [ 5 ] # When a `2` followed by a `3` is matched, replace it with `5`
-# Record Result: [ 1 5 4]
+# We populate the record with the animals
+# Note that the snake is last in line (the animals are moving leftwards)
+begin >> [ Fly Fly Frog Frog Fly Frog Frog Snake ]
 
-# The custom rule can omit the square brackets because it is a single value:
+# When a Frog catches a Fly, the Fly is removed from the record and the Frog will move to the end of the Record
+Fly Frog >> Frog
 
-begin >> [ 1 2 3 4 ]
-2 3 -> 5 # When a `2` followed by a `3` is matched, replace it with `5`
-# Record Result: [ 1 5 4]
+# When a Snake catches a Frog, the Frog is removed from the record and the Snake will move to the end of the Record
+Frog Snake >> Snake
+
+# Add a message to the record when the program ends
+end >> "The food chain has ended!"
 ```
 
-> [!WARNING]
-> This match operator does not work with the `begin` or `end` rules because there are no patterns to replace.
+Now we will walk though the flow of the program. Fist, the `begin` rule executes, adding some animals to the record. Next our custom rules are going to start matching. The pointer will be at the first value in the record, and we'll start by going *down the Rules*. 
 
-##### Rule Match (`=>`)
-The rule match operator (`=>`) will enter a new **rule scope** and match within the scope until no more matches exist.
+The `Fly Frog` pattern will try to match first, and fail since it doesn't match `Fly Fly` in the record.
+
+```
+RULES:
+  > Fly Frog >> Frog
+    Frog Snake >> Snake
+
+RECORD:
+[ Fly Fly Frog Frog Fly Frog Frog Snake ]
+  ^
+  Pointer
+```
+
+The `Frog Snake` pattern will also fail since it doesn't match `Fly Fly` in the record.
+
+```
+RULES:
+    Fly Frog >> Frog
+  > Frog Snake >> Snake
+
+RECORD:
+[ Fly Fly Frog Frog Fly Frog Frog Snake ]
+  ^
+  Pointer
+```
+
+Since we've gone down all the Rules, we will go *across the record*, and shift the pointer one value right. We restart matching from first rule. Now, we have a `Fly Frog` match so the pattern will be removed from the record, then the scope will execute, pushing a `Frog` to the back of the record. The `Frog` has successfully eaten a `Fly`!
+
+```
+RULES:
+  > Fly Frog >> Frog
+    Frog Snake >> Snake
+
+RECORD:
+[ Fly Fly Frog Frog Fly Frog Frog Snake ]
+      ^
+      Pointer
+
+NEW RECORD: 
+[ Fly Frog Fly Frog Frog Snake Frog ]
+```
+
+A pattern just matched, so we'll restart the process entirely. The pointer goes back to the beginning of the record and we start matching from the first rule again. Yet again, the `Fly Frog` pattern matches, so the pattern will be removed from the record, then the scope will execute, pushing a `Frog` to the back of the record.
+
+```
+RULES:
+  > Fly Frog >> Frog
+    Frog Snake >> Snake
+
+RECORD:
+[ Fly Frog Fly Frog Frog Snake Frog ]
+  ^
+  Pointer
+
+NEW RECORD: 
+[ Fly Frog Frog Snake Frog Frog ]
+```
+
+A pattern matched, so we restart again. The pointer goes to the beginning of the record and we start matching from the first rule. The `Fly Frog` pattern matches a third time.
+
+```
+RULES:
+  > Fly Frog >> Frog
+    Frog Snake >> Snake
+
+RECORD:
+[ Fly Frog Fly Frog Frog Snake Frog ]
+  ^
+  Pointer
+
+NEW RECORD: 
+[ Frog Snake Frog Frog Frog ]
+```
+
+After resetting the pointer and starting from the first Rule, we see that the `Fly Frog` pattern does not match. So we will move *down* onto the next Rule.
+
+```
+RULES:
+  > Fly Frog >> Frog
+    Frog Snake >> Snake
+
+RECORD:
+[ Frog Snake Frog Frog Frog ]
+  ^
+  Pointer
+```
+
+The `Frog Snake` Rule matches, so the pattern is removed from the record and `Snake` is pushed to the back of the record.
+
+```
+RULES:
+    Fly Frog >> Frog
+  > Frog Snake >> Snake
+
+RECORD:
+[ Frog Snake Frog Frog Frog ]
+  ^
+  Pointer
+
+NEW RECORD:
+[ Frog Frog Frog Snake ]
+```
+
+A pattern matches so we reset again and see that the `Fly Frog` doesn't match.
+
+```
+RULES:
+  > Fly Frog >> Frog
+    Frog Snake >> Snake
+
+RECORD:
+[ Frog Frog Frog Snake ]
+  ^
+  Pointer
+```
+
+The `Frog Snake` pattern also doesn't match, so we move *across the record*, shifting the pointer one value right.
+
+```
+RULES:
+    Fly Frog >> Frog
+  > Frog Snake >> Snake
+
+RECORD:
+[ Frog Frog Frog Snake ]
+  ^
+  Pointer
+```
+
+Beginning again at the top of the Rule set, the `Fly Frog` Rule doesn't match.
+
+```
+RULES:
+  > Fly Frog >> Frog
+    Frog Snake >> Snake
+
+RECORD:
+[ Frog Frog Frog Snake ]
+       ^
+       Pointer
+```
+
+Neither does the `Frog Snake` Rule, so we move *across* again.
+
+```
+RULES:
+    Fly Frog >> Frog
+  > Frog Snake >> Snake
+
+RECORD:
+[ Frog Frog Frog Snake ]
+       ^
+       Pointer
+```
+
+Going down the Rule set, `Fly Frog` doesn't match.
+
+```
+RULES:
+  > Fly Frog >> Frog
+    Frog Snake >> Snake
+
+RECORD:
+[ Frog Frog Frog Snake ]
+            ^
+            Pointer
+```
+
+But the pattern `Frog Snake` does.
+
+```
+RULES:
+    Fly Frog >> Frog
+  > Frog Snake >> Snake
+
+RECORD:
+[ Frog Frog Frog Snake ]
+            ^
+            Pointer
+
+NEW RECORD:
+[ Frog Frog Snake ]
+```
+
+We reset, and see that the `Fly Frog` pattern doesn't match.
+
+```
+RULES:
+  > Fly Frog >> Frog
+    Frog Snake >> Snake
+
+RECORD:
+[ Frog Frog Snake ]
+  ^
+  Pointer
+```
+
+The `Frog Snake` pattern also doesn't match, so we shift the pointer.
+
+```
+RULES:
+    Fly Frog >> Frog
+  > Frog Snake >> Snake
+
+RECORD:
+[ Frog Frog Snake ]
+  ^
+  Pointer
+```
+
+
+The `Fly Frog` pattern doesn't match.
+
+```
+RULES:
+  > Fly Frog >> Frog
+    Frog Snake >> Snake
+
+RECORD:
+[ Frog Frog Snake ]
+       ^
+       Pointer
+```
+
+The `Frog Snake` pattern matches.
+
+```
+RULES:
+    Fly Frog >> Frog
+  > Frog Snake >> Snake
+
+RECORD:
+[ Frog Frog Snake ]
+       ^
+       Pointer
+
+NEW RECORD:
+[ Frog Snake ]
+```
+
+After resetting, the `Fly Frog` pattern doesn't match.
+
+```
+RULES:
+  > Fly Frog >> Frog
+    Frog Snake >> Snake
+
+RECORD:
+[ Frog Snake ]
+  ^
+  Pointer
+```
+
+But the `Frog Snake` Rule does.
+
+```
+RULES:
+    Fly Frog >> Frog
+  > Frog Snake >> Snake
+
+RECORD:
+[ Frog Snake ]
+  ^
+  Pointer
+
+NEW RECORD:
+[ Snake ]
+```
+
+We reset the pointer for the last time, and try matching down the Rule set. `Fly Frog` doesn't match.
+
+```
+RULES:
+  > Fly Frog >> Frog
+    Frog Snake >> Snake
+
+RECORD:
+[ Snake ]
+  ^
+  Pointer
+```
+
+The `Frog Snake` pattern doesn't match. So we try to move across again. Since the pointer is at the end of the record, we completed a cycle without any matches, meaning no more matches are in the record. Thus, we are done matching!
+
+```
+RULES:
+    Fly Frog >> Frog
+  > Frog Snake >> Snake
+
+RECORD:
+[ Snake ]
+  ^
+  Pointer
+```
+
+Finally, the `end` rule will execute, pushing the string `"The food chain has ended!"` to the record, then the program terminates. Phew! That was **long**, wasn't it? This *down* than *across* matching is the sequence that all RuleLang programs operate in, so understanding this control flow is crucial.
+
+### Introduction to Variable and Function
+Before we dive into each of the components that make up a Rule, we are going to briefly introduce the concept of **variables** and **functions**, which will allow examples to be more dynamic and interesting. Later, we will expand on these concepts.
+
+Variables provide a way to bind matched values to an identifier as they are removed from the record so they can be used later in conditions and scopes. Variables use the `as` keyword. For example, in the food chain program, we can give each of the animals names. We need to keep track of the name in addition to the animal type, so when an animal is eaten, we also need to get rid of the name. Additionally, when an animal finds a meal and returns to the end of the list, the name will be moved as well. We will structure an animal as `<AnimalType: Term> <AnimalName: Str>`. The program will use the `str` pattern value too. This value matches any string making it useful for matching our animal names.
+
+```py
+# We populate the record with the animals
+begin >> [ Fly "Larry" Fly "Gertrude" Frog "Kermit" Frog "Tiana" Fly "George" Frog "Trevor" Frog "Mildred" Snake "Jörmungandr"]
+
+# When a Frog catches a Fly, the Fly is removed from the record and the Frog will move to the end of the Record
+Fly str Frog str as frogName >> [ Frog frogName ]
+
+# When a Snake catches a Frog, the Frog is removed from the record and the Snake will move to the end of the Record
+Frog str Snake str as snakeName >> [ Snake snakeName ]
+
+# Add a message to the record when the program ends
+end >> "The food chain has ended!"
+```
+
+Functions take a certain number of parameters, apply some computation, and return a result. Some of the most useful functions are:
+- `print()`: displays parameters in the console. Returns `nil`. This allows us to get output from the record so we can see program results!
+- `add(a b)`: Calculates and returns the sum of `a` and `b`.
+
+Now we can alter the food chain program to display a message when an animal is eaten, and when the program ends, we can show who survived. Since `print()` returns `nil`, we can avoid pushing it to the record using the `!` operator. We can avoid adding an entire value scope to the record using the `!>` match operator. This example also makes use of nested rule scopes. When a rule matches with a `=>` match operator, a new rule scope is entered. This new rule scope matches the in the same *down the Rules then across the record* method but only with the rules it contains. Once it stops matching, the scope is exited rules will continue matching on the global scope again.
+
+```py
+# We populate the record with the animals
+begin >> [ Fly "Larry" Fly "Gertrude" Frog "Kermit" Frog "Tiana" Fly "George" Frog "Trevor" Frog "Mildred" Snake "Jörmungandr"]
+
+# When a Frog catches a Fly, the Fly is removed from the record and the Frog will move to the end of the Record
+Fly str as flyName Frog str as frogName >> [ Frog frogName !print(flyName "was eaten by" frogName)]
+
+# When a Snake catches a Frog, the Frog is removed from the record and the Snake will move to the end of the Record
+Frog str as frogName Snake str as snakeName >> [ Snake snakeName !print(frogName "was eaten by" snakeName)]
+
+# When the rules end matching, we will enter a new rule scope that matches animals until the record is empty, printing who survived
+end => [
+  begin !> print("Let's see who survived!")
+  term str as animalName !> print(animalName "Survived!")
+]
+```
+
+When we run the code, we get this output:
+```
+Gertrude was eaten by Kermit
+Larry was eaten by Tiana
+George was eaten by Trevor
+Mildred was eaten by Jörmungandr
+Trevor was eaten by Jörmungandr
+Tiana was eaten by Jörmungandr
+Kermit was eaten by Jörmungandr
+Let's see who survived!
+Jörmungandr Survived!
+```
+
+Now our programs can actually accomplish something by showing useful information using `print()`.
+
+## Patterns
+Think of a pattern as a key to the lock. Only a specific grove sequence will open the lock. Similarly, only a specific pattern will match the record.
+
+The simplest patterns are `begin` and `end`. The `begin` pattern will automatically match when entering the rule scope before the *down then across* matching occurs, and the `end` pattern will match when leaving the rule scope after all other patterns cease to match. All other patterns are custom patterns sandwiched between the optional `begin` and `end` patterns. These custom patterns are evaluate and match according to the *down then across* principle.
+
+### Pattern Values
+
+A pattern is made from a sequence of one or more pattern values. It can be as simple as any traditional value.
+
+```py
+false  # Matches a `false` in the record
+10     # Matches the number 10 in the record
+```
+
+A pattern value can also be a type generalization, matching any value of the given type.
+```py
+num    # Matches any number in the record, like `5` or `2`
+str    # Matches any string in the record, like `"Hello"` or `"World"`
+term   # Matches any term in the record, like `Loop` or `If`
+bool   # Matches any boolean in the record, like `true` or `false`
+```
+
+The `any` pattern value matches all record values. A common design pattern that displays all values in the record and empty it uses the `any` pattern value:
 ```py
 begin >> [ 1 2 3 ]
-# Current Record: [ 1 2 3 ]
 end => [
- begin >> [ 4 5 6 ]
-    # Current Record: [ 1 2 3 4 5 6 ]
-    5 -> "five" # Match a `5` to replace with `five`
-    # Current Record: [ 1 2 3 4 "five" 6 ]
- end >> [ 7 8 9 ]
+  any as x !> print(x)
 ]
-# Final Record: [ 1 2 3 4 "five" 6 7 8 9 ]
+
+# RESULT: 
+# 1
+# 2
+# 3
 ```
-##### Additional Value Scope Matching Information
-All of the value scope matching operators (`>>`, `<<`, `!>`, and `=>`) evaluate the scope entirely before the values are added to the record. This way, matches like the beginning-pushing match don't push values in a reverse order:
+
+As you've seen in previous examples, you can make complex patterns by combining patterns value together into a sequence. In our food chain program, we made a pattern that matches a named fly followed by a named frog:
 ```py
-begin << [ 3 4 ]
-end << [ 1 2 ]
-# Values pushed as the entire scope at once: [ 1 2 3 4 ]
-# Values pushed separately: [ 2 1 4 3 ]
+Fly str Frog str
 ```
-See how the `end` rule pushes the `1` to the start of the **record**, then the `2`. This seems complicated and unnecessary because it is. So RuleLang doesn't work this way.
 
-> [!NOTE]
-> This can lead to several minor annoyances like the function `empty`, which empties the record when evaluated.
-> `begin >> [ 1 2 3 empty() ]` does not empty the record, because `1`, `2`, and `3` are not added to the record until the scope finishes evaluating. Therefore, you can use **rule chaining**: `begin >> [ 1 2 3 ] !> empty()`
+### Not Pattern Operator (`!`)
 
-##### Rule Chaining
-Each **rule scope** can have up to one `begin` and one `end` rule, but there are an unlimited number of custom rules in between. A rule is not just limited to a single **rule operator** and **scope**. You can chain **rule operators** and **scopes** so they evaluate sequentially, however, you can only use a replacing match (`->`) as the start of a chain (the first match operator).
+The `!` operator can be prepended to a pattern value to match anything but the following pattern value. Let's say we wanted to filter the record to keep all strings but remove all other values. We can accomplish this using the not (`!`) operator.
+
 ```py
-begin >> [ 1 2 3 ] # Current Record: [ 1 2 3 ]
- >> [ 4 5 6 ] # Current Record: [ 1 2 3 4 5 6 ]
- => [
-        5 -> "five" # Match a `5` to replace with `five`
-        # Current Record: [ 1 2 3 4 "five" 6 ]
- ]
- >> [ 7 8 9 ]
-# Final Record: [ 1 2 3 4 "five" 6 7 8 9 ]
+begin >> [ true "one" 2 "two" Three "three" ]
+!str as removedValue !> print("We just removed" removedValue)
+
+# CONSOLE:
+# We just removed true
+# We just removed 2
+# We just removed Three
 ```
 
-> [!NOTE]
-> The replacing match (`->`) can only be first and once because otherwise, other scopes could push values to the **record** messing up where the replacing replaces values. For example `begin >> [ 1 2 3 4 ] 2 << 0 -> "two"`. Should the result be `[ 0 1 "two` 3 4 ]` or `[ 0 "two" 2 3 4 ]`?
+### Or Pattern Operator (`|`)
 
-#### In-Scope Not
-The in-scope not operator (`!`) can be used within a value scope to *NOT* add the following value to the record.
+The **or** (`|`) operator allows the pattern to match one group of pattern values or another group of pattern values. Each side of the `|` operator must have the same number of pattern values. This simplifies variable assignment and pattern matching.
+
+If we had a list of pets, and we want to remove all the `Cats` and `Dogs`, we could make a small program:
+
 ```py
-begin >> [ 1 2 3 !4 !5 ] # [ 1 2 3 ]
+begin >> [ Cat Fish Dog Dog Turtle Cat Bird ]
+Cat !> print("Removed a pet")
+Dog !> print("Removed a pet")
 ```
-Although the same result can be found using rule chaining, this simplifies the program and is mostly beneficial for functions.
+
+We can combine the Rules into one with an `|` operator:
+
 ```py
-begin >> [ 1 2 3 !print(4) ] # [ 1 2 3 ] and displays `4` in the console
-end >> !print(5) # this is the same as `end !> print(5)`
+begin >> [ Cat Fish Dog Dog Turtle Cat Bird ]
+Cat | Dog !> print("Removed a pet")
 ```
-#### Sequence of Rule Matching
-When a **rule scope** is entered, if there is a `begin` rule, it will be evaluated first. Then, all custom rules attempt to evaluate until there are no more matches. These custom rules attempt to match first *down* rules, then *across* the record. 
 
-Rule matching follows this sequence:
-1. A **pointer** points towards the first value in the record. The **pointer** always points to the value in the record that will be compared to the first **pattern value** in the **pattern**.
-2. Rules are descended. Sequentially, each rule's **pattern** will try to match against the record.
-3. If a **pattern** matches, the rule's scope evaluates. Then, return to **1.**
-4. If no rule matched, slide the **pointer** over to the next record value, going *across*. If there are no more record values, no more matches will occur so the `end` rule will evaluate, then the rule scope will be exited. Otherwise, there was a new record value, so return to **2** to go *down*.
+If we wanted to remove `Fish` as well, our program is easy to extend:
 
-Here are several examples to demonstrate the sequence:
-
-**Single Rule (*across*)**
 ```py
-begin >> [ 2 1 2 2 1 2 ]
-1 2 -> "three"
-```
-Initially, the record and pointer will look like the following:
-```
-Record  [ 2 1 2 2 1 2 ]
-Pointer   ^
-```
-First, we go *down* the rules, which is easy because we just have one. The pattern `1 2` will attempt to match against the record at the index of the pointer, resulting in no match.
-```
-Record  [ 2 1 2 2 1 2 ]
-Pointer   ^
-Pattern   1 2
-Result: No Match
-```
-Because no matches took place going *down*, we go *across*. The pointer will slide over one value in the record, and we'll attempt to make another match going *down* our rules. In this case, there is a match, so `1 2` is replaced by `"three"`.
-```
-Record  [ 2 1 2 2 1 2 ]
-Pointer     ^
-Pattern     1 2
-Result: Match
-New Record: [ 2 "three" 2 1 2 ]
-```
-A pattern matched, so the **pointer** reverts back to the start of the record.
-```
-Record  [ 2 "three" 2 1 2 ]
-Pointer   ^
-```
-Now, we continue going *down* and *across* until another pattern is matched.
-```
-Record  [ 2 "three" 2 1 2 ]
-Pointer   ^
-Pattern   1 2
-Result: No Match
-
-Record  [ 2 "three" 2 1 2 ]
-Pointer     ^
-Pattern     1 2
-Result: No Match
-
-Record  [ 2 "three" 2 1 2 ]
-Pointer             ^
-Pattern             1 2
-Result: No Match
-
-Record  [ 2 "three" 2 1 2 ]
-Pointer               ^
-Pattern               1 2
-Result: Match
-New Record: [ 2 "three" 2 "three" ]
-```
-Because a pattern was matched, the **pointer** goes back to the start of the record and we continue attempting to match. However, the *down* and *across* methods yield no more matches, so the rule scope is exited.
-```
-Record  [ 2 "three" 2 "three" ]
-Pointer   ^
-Pattern   1 2
-Result: No Match
-
-Record  [ 2 "three" 2 "three" ]
-Pointer     ^
-Pattern     1 2
-Result: No Match
-
-Record  [ 2 "three" 2 "three" ]
-Pointer             ^
-Pattern             1 2
-Result: No Match
-
-Record  [ 2 "three" 2 "three" ]
-Pointer               ^
-Pattern               1 2
-Result: No Match
+begin >> [ Cat Fish Dog Dog Turtle Cat Bird ]
+Cat | Dog | Fish !> print("Removed a pet")
 ```
 
-**Multiple Rules (*down then across*)** 
+We can use parenthesis to group pattern values for an *or*, so we can include other pattern values outside of the *or*. What if all of the pets were named we wanted to display the names of all `Cat`s, `Dog`s, and `Fish`? 
+
 ```py
-begin >> [ 1 1 2 4 2 1 ]
-1 1 -> 2
-1 2 -> 3
-2 2 -> 4
-4 4 -> 8
-```
-This program has four custom rules, which we will label:
-① `1 1 -> 2`
-② `1 2 -> 3`
-③ `2 2 -> 4`
-④`4 4 -> 8`
-Initially, the record and pointer will look like the following:
-```
-Record  [ 1 1 2 4 2 1 ]
-Pointer   ^
-```
-First, we go *down* the rules. ① attempts to match and succeeds, replacing `1 1` with `2`.
-```
-Record   [ 1 1 2 4 2 1 ]
-Pointer    ^
-Pattern ① 1 1
-Result: Match
-New Record: [ 2 2 4 2 1 ]
-```
-Because a match was found, the **pointer** moves to the beginning of the record, and rules are matched going *down* again. ① and ② both fail to match, but ③ succeeds, replacing `2 2` with `4`.
-```
-Record   [ 2 2 4 2 1 ]
-Pointer    ^
-Pattern ① 1 1
-Result: No Match
+begin >> [ 
+    Cat "Garfield" 
+    Fish "Nemo" 
+    Dog "Scooby-Doo"
+    Dog "Snoopy"
+    Turtle "Leonardo"
+    Cat "Tom" 
+    Bird "Tweety"
+  ]
+(Cat | Dog | Fish) str as name !> print(name "was removed.")
 
-Record   [ 2 2 4 2 1 ]
-Pointer    ^
-Pattern ② 1 2
-Result: No Match
-
-Record   [ 2 2 4 2 1 ]
-Pointer    ^
-Pattern ③ 2 2
-Result: Match
-New Record: [ 4 4 2 1 ]
-```
-A match was found, so we start with the **pointer** at the beginning of the record, going *down* again. ①, ②, and  ③ all fail to match, but ④ succeeds, replacing `4 4` with `8`.
-```
-Record   [ 4 4 2 1 ]
-Pointer    ^
-Pattern ① 1 1
-Result: No Match
-
-Record   [ 4 4 2 1 ]
-Pointer    ^
-Pattern ② 1 2
-Result: No Match
-
-Record   [ 4 4 2 1 ]
-Pointer    ^
-Pattern ③ 2 2
-Result: No Match
-
-Record   [ 4 4 2 1 ]
-Pointer    ^
-Pattern ④ 4 4
-Result: Match
-New Record: [ 8 2 1 ]
-```
-For the final time, a match took place, so we start by going *down* with the pointer at the beginning of the record. ①, ②,  ③, and ④ all fail to match, so the **pointer** slides over a value in the record. ①, ②,  ③, and ④ all fail to match again, causing the **pointer** to slide an additional time. Finally, ①, ②,  ③, and ④ all fail to match at the end of the record, so matching ceases and the scope is exited
-```
-Record   [ 8 2 1 ]
-Pointer    ^
-Patterns ①, ②,  ③, and ④
-Result: All Fail
-
-Record   [ 8 2 1 ]
-Pointer      ^
-Patterns ①, ②,  ③, and ④
-Result: All Fail
-
-Record   [ 8 2 1 ]
-Pointer        ^
-Patterns ①, ②,  ③, and ④
-Result: All Fail
+# RESULT:
+# Garfield was removed.
+# Nemo was removed.
+# Scooby-Doo was removed.
+# Snoopy was removed.
+# Tom was removed.
 ```
 
-**Multiple Rule Scopes**
-```py
-begin >> [ 1 2 Three_Ones ]
-1 => [
- num -> "NUMBER"
-]
-Three_Ones -> [ 1 1 1 ]
-```
-This program has three custom rules, which we will label:
-① `1 => [ ... ]`
-② `Three_Ones -> [ 1 1 1 ]`
-③ `num -> "NUMBER"`
-Initially, the record and pointer will look like the following:
-```
-Record  [ 1 2 Three_Ones ]
-Pointer   ^
-```
-First, we go *down* the rules, which causes ① to match, removing `1` from the record.
-```
-Record  [ 1 2 Three_Ones ]
-Pointer   ^
-Pattern   1
-Result: Match
-New Record: [ 2 Three_Ones ]
-```
-Now, a new rule scope is entered with only rule ③. The **pointer** goes to the start of the record, and matching begins. ③ will match with the first item in the record, replacing it with "NUMBER". Then, after the pointer shifts a couple of times, no more matches occur, so the scope is exited.
-```
-Record  [ 2 Three_Ones ]
-Pointer   ^
-Pattern   num
-Result: Match
-New Record: [ "NUMBER" Three_Ones ]
+## Conditions
 
-Record  [ "NUMBER" Three_Ones ]
-Pointer   ^
-Pattern   num
-Result: No Match
+Conditions are another optional addition to patterns, adding another layer of validation before the Rule successfully matches. They make patterns more specific. Condition's are checked after a pattern matches. If the condition evaluates to a *truthy* value, a match occurs and the Rule's scopes evaluate. Otherwise, the match does not happen.
 
-Record  [ "NUMBER" Three_Ones ]
-Pointer            ^
-Pattern            num
-Result: No Match
-```
-Because a rule was just matched, the method repeats with the **pointer** at the start in the main rule scope. Neither ① nor ② match going *down*, so the pointer slides, going *across*. ① doesn't match again, but ② does, replacing `Three_Ones` with `1 1 1`.
-```
-Record  [ "NUMBER" Three_Ones ]
-Pointer   ^
-Pattern   ①, and ②
-Result: Both Fail
+Truthiness means how values are interpreted as either `true` or `false` in boolean contexts, like in conditions. In RuleLang, truthiness is represented by either *truthy* (acting like `true`) or *falsy* (acting like `false`). Truthiness follows a different rule for each type:
+- Numbers are **truthy** when they are non-zero (ie. `0` is the only **falsy** number)
+- Strings are **truthy** when they are not empty (ie. `""` is the only **falsy** string)
+- Booleans are **truthy** when they are `true` (ie. `false` is the only **falsy** boolean)
+- Terms are always **truthy**
+- Nils are always **falsy**
 
-Record  [ "NUMBER" Three_Ones ]
-Pointer            ^
-Pattern            1
-Result: No Match
+### Condition Operators
+Conditions allow you to use some operators for terseness. These operators are ONLY allowed to be used in conditions. You can find functions that model these operators if you want to use them elsewhere, like `greater(num num)` must be used instead of `>` in scopes.
 
-Record  [ "NUMBER" Three_Ones ]
-Pointer            ^
-Pattern            Three_Ones
-Result: Match
-New Record: [ "NUMBER" 1 1 1 ]
-```
-A rule was matched, so we restart going *down*. Both ① and ② fail before the pointer shifts and  ① matches. `1` is removed from the record, and the rule scope is entered.
-```
-Record  [ "NUMBER" 1 1 1 ]
-Pointer   ^
-Pattern   ①, and ②
-Result: Both Fail
-
-Record  [ "NUMBER" 1 1 1 ]
-Pointer            ^
-Pattern            1
-Result: Match
-New Record: [ "NUMBER" 1 1 ]
-```
-Now rule ③ attempts to match, eventually succeeding twice before the scope is exited.
-```
-Record  [ "NUMBER" 1 1 ]
-Pointer   ^
-Pattern   num
-Result: No Match
-
-Record  [ "NUMBER" 1 1 ]
-Pointer            ^
-Pattern            num
-Result: Match
-New Record: [ "NUMBER" "NUMBER" 1 ]
-
-Record  [ "NUMBER" "NUMBER" 1 ]
-Pointer   ^
-Pattern   num
-Result: No Match
-
-Record  [ "NUMBER" "NUMBER" 1 ]
-Pointer            ^
-Pattern            num
-Result: No Match
-
-Record  [ "NUMBER" "NUMBER" 1 ]
-Pointer                     ^
-Pattern                     num
-Result: Match
-New Record: [ "NUMBER" "NUMBER" "NUMBER" ]
-
-Record  [ "NUMBER" "NUMBER" "NUMBER" ]
-Pointer   ^
-Pattern   num
-Result: No Match
-
-Record  [ "NUMBER" "NUMBER" "NUMBER" ]
-Pointer            ^
-Pattern            num
-Result: No Match
-
-Record  [ "NUMBER" "NUMBER" "NUMBER" ]
-Pointer                     ^
-Pattern                     num
-Result: No Match
-```
-Patterns ① and ② will attempt to match against the record and fail three times with the **pointer** shifting each time. After the third attempt, no matches have taken place and the **pointer** is at the end of the record, so the program ends.
-
-#### Variables
-Variables provide a way to bind a matched value to use later in conditions or value scopes. Variables are declared directly following a **pattern value** and assigned to a variable name that follows the criteria:
-- Starts with a lowercase alphabetical character
-- Contains only alphanumeric and underscore (`_`) characters
-This way, there is a distinction between terms (uppercase start) and variables (lowercase start).
-
-The following example binds a number to the variable `my_number`. When the pattern is matched `my_number` will be assigned to the record value it matched with. In this case, `my_number` is set to `1`. Then, the variable is used within the scope.
-```py
-begin >> [ Type 1 ]
-Type num as my_num -> [ my_num "is a number" ]
-
-# Record Result [ 1 "is a number" ]
-```
-Multiple variables can be declared in the same rule.
-```py
-begin >> [ Type 1 2 ]
-Type num as num_1 num as num_2 -> [ num_1 "and" num_2 "are both numbers" ]
-
-# Record Result [ 1 "and 2 "are both numbers" ]
-```
-This can be streamlined by using parenthesis around the variable names. 
-```py
-begin >> [ Type 1 2 ]
-Type num num as (num_1 num_2) -> [ num_1 "and" num_2 "are both numbers" ]
-
-# Record Result [ 1 "and 2 "are both numbers" ]
-```
-A variable cannot be defined in the middle of an **or** expression, and an **or** cannot be used on the same level (group `(...)`) as a variable declaration.
-```py
-num as x | "one" >> x # Error!
-"one" | (num as x) >> x # Error!
-"one" | num as x >> x # Fine: ("one" | num) as x
-```
-Variables are scoped, so when entering a new value scope, previous variables are still available. Once the scope is exited, the variable disappears.
-```py
-begin >> [MakeVar 1 2]
-
-MakeVar num as x num as y => [ # x=1 y=2
-   begin >> [MakeVar 3 4]
-   MakeVar num as x num as z => [ # x=3 z=4
-        begin >> 1
-        1 if x = 3 >> [x y z] # [ 3, 2, 4]
-   ] # Exit inner scope, so x=3 and z=4 are no longer available
-   end >> [x y] # x=1 y=2
-]
-```
-#### Conditions
-Conditions are an optional addition to **patterns** to make them more terse and concise. Conditions are checked after a  **pattern value** match occurs. If the condition evaluates to `true`, meaning it *has value*, a match occurs, otherwise, the match does not happen.
-- Numbers *have value* when they are non-zero
-- Strings *have value* when they are not empty
-- Booleans *have value* when they are *true*
-- Terms always *have value*
-- Nils never *have value*
-##### Conditional and Logical Operators
-Several operators work within conditions.
-###### Greater Than (`num > num`)
+#### Greater Than (`num > num`)
 Greater than compares if the left operand is greater than the right operand and returns `true` if it is, and `false` otherwise.
 ```py
 1 > 2 # false
 8 > 1 # true 
 1 > 1 # false
 ```
-###### Less Than (`num < num`)
+#### Less Than (`num < num`)
 Less than compares if the left operand is less than the right operand and returns `true` if it is, and `false` otherwise.
 ```py
 1 < 2 # true
 8 < 1 # false 
 1 < 1 # false
 ```
-###### Greater Than Or Equal To (`num >= num`)
+#### Greater Than Or Equal To (`num >= num`)
 Greater than or equal to compares if the left operand is greater than or equal to the right operand and returns `true` if it is, and `false` otherwise.
 ```py
 1 >= 2 # false
 8 >= 1 # true 
 1 >= 1 # true
 ```
-###### Less Than Or Equal To (`num <= num`)
+#### Less Than Or Equal To (`num <= num`)
 Less than or equal to compares if the left operand is less than or equal to the right operand and returns `true` if it is, and `false` otherwise.
 ```py
 1 <= 2 # true
 8 <= 1 # false 
 1 <= 1 # true
 ```
-###### Equal (`num = num`)
-Equal compares if the left operand is the same type and value as the right operand and returns `true` if it is, and `false` otherwise.
+#### Equal (`any = any`)
+Equal compares if the left operand is the same type **and** value as the right operand and returns `true` if it is, and `false` otherwise.
 ```py
 1 = 1    # true
 "1" = 1  # false
 2 = 1    # false
 ```
-###### Not Equal (`num != num`)
-Not equal compares if the left operand is not the same type or value as the right operand and returns `true` if it's not, and `false` otherwise.
+#### Not Equal (`any != any`)
+Not equal compares if the left operand has a different type or different value than the right operand and returns `true` if they are different, and `false` otherwise.
 ```py
 1 != 1    # false
 "1" != 1  # true
 2 != 1    # true
 ```
-###### Not (`! any`)
-Not is a unary operator. If the right operand *has value* return `false`, otherwise return `true`.
+#### Not (`! any`)
+Not is a unary operator. If the right operand is *truthy*, it return `false`, otherwise it return `true`.
 ```py
+!true    # false
+!false   # true
 !1       # false
 !0       # true
 !My_Term # false
 !nil     # true
 ```
-###### Or (`any | any`)
-**Or** is a binary operator. If the left operand *has value*, the left operand is returned, otherwise the right operand is returned. The **or** operator is short-circuiting, meaning the right operator will not be evaluated unless necessary. 
+#### Or (`any | any`)
+**Or** is a binary operator. If the left operand is *truthy*, the left operand is returned, otherwise the right operand is returned. 
 ```py
-1 | 2   # 1
-0 | 1   # 1
-5 | 0   # 5
-nil | 0 # 0
+true | true    # true
+true | false   # true
+false | true   # true
+false | false  # false
+
+1 | 2          # 1
+0 | 2          # 2
+5 | 0          # 5
+nil | 0        # 0
 ```
-###### And (`any & any`)
-**And** is a binary operator. If the left operand *has value*, the right operand is returned, otherwise the left operand is returned. The **and** operator is short-circuiting, meaning the right operator will not be evaluated unless necessary. 
+The **or** operator is short-circuiting, meaning the right operand will not even evaluate if the left operand is *truthy*. 
 ```py
-1 | 2   # 2
-0 | 1   # 0
-5 | 0   # 0
-nil | 0 # nil
+false | print("This will print")       # `nil` is returned and the print statement runs
+true  | print("This will NOT print")   # `true` is returned, so the print will not be evaluated
 ```
-###### Operator Precedence
-There are four levels of precedence for expression operators that determine which operations evaluate first:
+
+#### And (`any & any`)
+**And** is a binary operator. If the left operand is *truthy*, the right operand is returned, otherwise the left operand is returned. 
+```py
+true & true    # true
+true & false   # false
+false & true   # false
+false & false  # false
+
+1 & 2   # 2
+0 & 1   # 0
+5 & 0   # 0
+nil & 0 # nil
+```
+
+The **and** operator is short-circuiting, meaning the right operator will not be evaluated if the left operand is *falsy*. 
+```py
+false & print("This will NOT print") # `false` is returned, so the print will not be evaluated
+true  & print("This will print")     # `nil` is returned and the print statement runs
+```
+
+#### Operator Precedence
+There are four levels of precedence for condition operators that determine which operations take priority:
 1. Unary Not (`!`)
 2. Conditionals (`>`, `<`, `>=`, `<=`, `=`, and `!=`)
 3. Logical And (`&`)
 4. Logical Or (`|`)
-```
-3 > 2 & 5 <= 5 | 7 < 6 & !(4 >= 4) # true
-Equivalent expression order:
-((3 > 2) & (5 <= 5)) | ((7 < 6) & (!(4 >= 4)))  # true
-```
-Parenthesis can be used to evaluate subexpressions before others.
-```
-1 & !3 >= -1            # ERROR: left operand for `>=` is not a number
 
-This can be fixed using parenthesis
-(1 & !3) >= -1         # true
-```
-##### Conditions in Rules
-Conditions can also include variables, making the syntax more concise.
+Parenthesis can also be used to change the precedence of a condition. The condition within parenthesis is ignored until it needs to be evaluated, then everything within is evaluated before continuing evaluation. Also, remember that `|` and `&` are short-circuiting, meaning the right operand will not be evaluated unless necessary. All of this along with associativity lead to complex evaluation order.
+
+For example, let's tackle this big condition:
 ```py
-1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 -> "Number Between 1 and 10"
-# With a condition:
-num as x if x >= 1 & x <= 10 ->  "Number Between 1 and 10"
+3 > 2 & (7 | 5 <= 5) < 9 & !(4 >= 4)
 ```
-The following program uses conditions to sort a record of numbers from least to greatest.
+The parser will convert this into a tree that will be traversed by inorder fashion:
+```py
+         &
+       /   \
+      /     \
+     /        \
+    <           &
+  /   \       /   \
+ 3     2     <     !
+           /  \     \
+          |    9     >=
+        /   \       /  \
+       7     <=    4    4
+            /  \
+           5    5
+```
+First, `3 > 2` will evaluate to `true`. Since the left operand of the `&` is *truthy*, the condition will return the right evaluated operand.
+```py
+3 > 2 & (7 | 5 <= 5) < 9 & !(4 >= 4)
+true  & (7 | 5 <= 5) < 9 & !(4 >= 4)
+        (7 | 5 <= 5) < 9 & !(4 >= 4)
+```
+There is another *and* condition, so we prioritize the left operand `(7 | 5 <= 5) < 9`. This expression requires us to evaluate the parenthesis. Since `7` is *truthy*, the *or* condition evaluates to `7` without even looking at the right side of the `|`. 
+```py
+(7 | 5 <= 5) < 9 & !(4 >= 4)
+           7 < 9 & !(4 >= 4)
+```
+Continuing the evaluation of `(7 | 5 <= 5) < 9`, we get `7 < 9` is `true`. Again, since the left operand of an `&` is *truthy*, the right operand is returned.
+```py
+7 < 9 & !(4 >= 4)
+ true & !(4 >= 4)
+        !(4 >= 4)
+```
+We evaluate the condition in the parenthesis since it is needed for the *not*. The condition `4 >= 4` is `true`. Then `!true` is converted to `false`. Thus, the condition evaluates to `false`.
+```py
+!(4 >= 4)
+!true
+false
+```
+
+### Conditions in Rules
+Conditions leverage variables to make even more specific patterns. We can match integers between `1` and `10` like this:
+```py
+1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 -> "Integer Between 1 and 10"
+```
+But this solution is not very extendable. What if we wanted to go up to `100` or `1000`? Instead, a condition can be used.
+```py
+num as x
+  if 1 <= x & x <= 1000 & is_integer(x) -> "Integer Between 1 and 1000"
+```
+
+We can use a condition to make a program that sorts a list of numbers.
 ```py
 begin >> [ 1 4 1 -8 4 2 7 ]
-(num num) as (x y) if x > y -> [ y x ]
+num as x num as y 
+  if x > y -> [ y x ] # Swap the order of x and y
+end => [
+  any as x !> print(x)
+]
+
+# RESULT:
+# -8
+# 1
+# 1
+# 2
+# 4
+# 4
+# 7
 ```
-### Functions
-Functions provide more features in RuleLang. They are all pre-made and follow the same naming convention as variables
+
+We can make a FizzBuzz program using conditions. FizzBuzz is a classic demo program. It will loop from `1` to `100` and:
+- If the number is divisible by `15`, it will display `FizzBuzz`
+- If the number is divisible by `3`, it will display `Fizz`
+- If the number is divisible by `5`, it will display `Buzz`
+- Otherwise, it will display the number
+
+The output will look like:
+```py
+1, 2, Fizz, 4, Buzz, Fizz, 7, 8, Fizz, Fizz, 11, Fizz, 13, 14, FizzBuzz, 16, ...
+```
+
+First, lets make a loop that repeats from `1` to `100`:
+
+```py
+begin >> 1
+
+# Empty the record when the loop counter is greater than 100
+num as x 
+  if x > 100 !> empty() 
+
+# Match a number, increment it by one and push it back to the record and print the loop counter
+num as x >> [ add(x 1) !print(x)] 
+
+# RESULT:
+# 1
+# 2
+# ...
+# 100
+```
+
+Now we need to add all of the cases. We will use the `mod()` function that returns the remainder of integer division. For example `mod(5 2)` will be `1`. When `mod()` returns `0`, we know that the number is wholly divisible (like `mod(9 3)` is `0`). We also need to be particular when ordering the conditions. When the number is divisible by `15`, we need to display `FizzBuzz`, but the number is also divisible by `3` and `5`. Therefore, the `FizzBuzz` Rule must be defined before the `Fizz` and `Buzz` Rules.
+
+```py
+begin >> 1
+
+# Empty the record when the loop counter is greater than 100
+num as x 
+  if x > 100 !> empty() 
+
+num as x if mod(x 15) = 0 >> [ add(x 1) !print("FizzBuzz")]
+num as x if mod(x 3) = 0  >> [ add(x 1) !print("Fizz")] 
+num as x if mod(x 5) = 0  >> [ add(x 1) !print("Buzz")] 
+
+# This is the default case, if it doesn't meet any previous condition, it will match this 
+num as x >> [ add(x 1) !print(x)] 
+
+# RESULT:
+# 1
+# 2
+# Fizz
+# ...
+# 98
+# Fizz
+# Buzz
+```
+
+This seems awfully repetitive; The same pattern is repeated 5 times! Luckily we can simplify this with `if`, `elif`, `else` chains.
+
+### Branching
+
+You can add more conditional branches to a pattern, so when the pattern matches, depending on which condition is *truthy*, certain scopes are evaluated. To add another condition, use the `elif` keyword. This means *if the previous condition did not match, try this condition*. Therefore, the scopes of the first *truthy* condition will execute. Then, since a pattern has matched, we reset the *pointer* to the start of the record and start matching *down than across* again (ignoring all other condition in the Rule). 
+
+By using the `else` keyword, you can add a default condition that matches if none of the previous conditions are *truthy*. The `else` branch is optional, and must be the last branch. If we update the FizzBuzz program, we get:
+
+```py
+begin >> 1
+
+num as x 
+    if x > 100         !> empty() # Stop the loop at 100 iterations
+    elif mod(x 15) = 0 >> [ add(x 1) !print("FizzBuzz")]
+    elif mod(x 3) = 0  >> [ add(x 1) !print("Fizz")] 
+    elif mod(x 5) = 0  >> [ add(x 1) !print("Buzz")] 
+    else               >> [ add(x 1) !print(x)] 
+```
+
+## Scopes
+
+The last part of a Rule, other than a pattern and optional condition, are the scopes. Scopes are the things that actually *do* stuff when the Rule matches. There are two different kinds of scopes: value scopes and rule scopes. You have seen both of these kinds of scopes in previous examples, but now you will get a deeper understanding.
+
+### Value Scopes
+A value scope is a list of values wrapped in square brackets (`[ ... ]`). These values are sequentially evaluated. Then, the resulting list of values are inserted into the record at a point that depends on the Rule operator.
+
+```py
+begin >> [ 1 2 3 ]
+end >> [ 4 5 ]
+```
+
+If a value scope only have one value, it can be written concisely without the square brackets.
+
+```py
+begin >> 1 # This is the same as `begin >> [1]`
+end !> print("1 was added to the record.")
+```
+
+### Rule Scopes
+A rule scope is a collection of rules wrapped in square brackets (`[ ... ]`). The RuleLang program itself is a rule scope too! Rule scopes can start with an optional `begin` pattern, and finish with an optional `end` pattern. The patterns sandwiched between are custom rules that follow the *down than across* matching algorithm. 
+
+When a rule scope is entered, we ignore everything about the previous rule scope since the the old rule scope (which we call the *parent*) will pause matching until the new rule scope (the *child*) terminates. We've already seen how rule scopes can be used to display all the results in the record, like in this number sorting program.
+
+```py
+begin >> [ 1 4 1 -8 4 2 7 ]
+
+num as x num as y 
+  if x > y -> [ y x ] # Swap the order of x and y
+
+# Display all the record results
+end => [
+  any as x !> print(x)
+]
+
+# RESULT:
+# -8
+# 1
+# 1
+# 2
+# 4
+# 4
+# 7
+```
+
+To exemplify more rule scope matching, let's modify the food chain example. Instead of the animal getting tiered after eating it's prey, it gets ravenous and continues trying to eat more! We will do this by keeping the predator in place, instead of moving the predator to the end of the record. We will also make the assumption that our snakes are nocturnal (they can be [Dragon Snakes](https://en.wikipedia.org/wiki/Xenodermus), since they love eating frogs). The program will start in the daytime where the frogs go hunting. Then, once the frogs finish eating, it will switch to nighttime for the snakes to start hunting.
+
+```py
+# We populate the record with the animals
+begin >> [ 
+  Daytime            # This will allow us to enter the daytime rule scope
+  Fly "Cornelius"    # We added a couple new animal that weren't in previous examples
+  Snake "Kaa"
+  Fly "Larry" 
+  Fly "Gertrude" 
+  Frog "Kermit" 
+  Frog "Tiana" 
+  Fly "George" 
+  Frog "Trevor" 
+  Frog "Mildred" 
+  Snake "Jörmungandr"
+]
+
+Daytime => [
+  begin !> print("The day has started!")
+
+  # When a Frog catches a Fly, the Fly is removed from the record and the frog remains in place
+  Fly str as flyName Frog str as frogName -> [ Frog frogName !print(flyName "was eaten by" frogName)]
+
+  end << Nighttime
+]
+
+Nighttime => [
+  begin !> print("The night has started!")
+
+  # When a Snake catches a Frog, the Frog is removed from the record and the Snake remains in place
+  Frog str as frogName Snake str as snakeName -> [ Snake snakeName !print(frogName "was eaten by" snakeName)]
+
+  end !> print("Let's see who survived!")
+]
+
+# When the night rules end matching, we will display who survived
+term str as animalName !> print(animalName "Survived!")
+```
+
+The results will be:
+
+```
+The day has started!
+Gertrude was eaten by Kermit
+Larry was eaten by Kermit
+George was eaten by Trevor
+The night has started!
+Mildred was eaten by Jörmungandr
+Trevor was eaten by Jörmungandr
+Tiana was eaten by Jörmungandr
+Kermit was eaten by Jörmungandr
+Let's see who survived!
+Cornelius Survived!
+Kaa Survived!
+Jörmungandr Survived!
+```
+
+### Rule Operators
+For the most part, you have probably taken for granted where the vales from a value scope are inserted back into the record. This insertion depends on the rule operator used.
+
+#### Back-Pushing Match (`>>`)
+The back-pushing match rule operator (`>>`) will add all values within the scope to the end of the record.
+```py
+begin >> [ 1 2 ]
+end >> [ 3 4 ]
+
+# Record Result: [ 1 2 3 4 ]
+```
+#### Font-Pushing Match (`<<`)
+The front-pushing match rule operator (`<<`) will add all values within the scope to the start of the record.
+```py
+begin << [ 3 4 ]
+end << [ 1 2 ]
+
+# Record Result: [ 1 2 3 4 ]
+```
+#### Removing Match (`!>`)
+The removing match rule operator (`!>`) will not add any values from the scope to the record. This can be useful for functions like `print()`, which return `nil` and we don't want to add `nil` to the record.
+```py
+begin >> print("Too bad! `nil` is added to the record here. ")
+# Record Result: [ nil ]
+```
+```py
+begin !> print("Cool. `nil` won't be added to the record.")
+# Record Result: [ ]
+```
+#### Replacing Match (`->`)
+The replacing match rule operator (`->`) will insert the values from the scope to the position where the pattern was removed within the record.
+
+This program merges adjacent numbers if they are equal.
+
+```py
+begin >> [ 16 4 1 1 2 8 ]
+
+num as x num as y
+  if x = y -> add(x y)
+
+end => [
+  num as x !> print(x)
+]
+
+# RESULT:
+# 32
+```
+
+With replacing, evaluation in the record will look something like:
+```py
+[ 16 4 1 1 2 8 ]
+[ 16 4 2 2 8 ]
+[ 16 4 4 8 ]
+[ 16 8 8 ]
+[ 16 16 ]
+[ 32 ]
+```
+
+> [!WARNING]
+> This match operator does not work with the `begin` or `end` rules because there are no patterns to replace.
+
+#### Rule Match (`=>`)
+The rule match operator (`=>`) will enter a new rule scope and match within that scope until no more matches occur. The previous day/night food chain exemplifies its use. There is also the traditional pattern to display all the items in the record after a program ends.
+```py
+end => [
+  num as x !> print(x)
+]
+```
+
+### Rule Chaining
+When a pattern matches, multiple scopes can be executed sequentially though rule chaining. 
+
+For our nocturnal food chain, we don't even need the `Daytime` and `Nighttime` terms to signify order (although they do make the code cleaner).
+
+```py
+# We populate the record with the animals
+begin >> [ 
+    Fly "Cornelius"
+    Snake "Kaa"
+    Fly "Larry" 
+    Fly "Gertrude" 
+    Frog "Kermit" 
+    Frog "Tiana" 
+    Fly "George" 
+    Frog "Trevor" 
+    Frog "Mildred" 
+    Snake "Jörmungandr"
+  ]
+  !> print("The day has started!")
+  => [
+    # When a Frog catches a Fly, the Fly is removed from the record and the frog remains in place
+    Fly str as flyName Frog str as frogName -> [ Frog frogName !print(flyName "was eaten by" frogName)]
+  ]
+  !> print("The night has started!")
+  => [
+    # When a Snake catches a Frog, the Frog is removed from the record and the Snake remains in place
+    Frog str as frogName Snake str as snakeName -> [ Snake snakeName !print(frogName "was eaten by" snakeName)]
+  ]
+  !> print("Let's see who survived!")
+
+# When the night rules end matching, we will display who survived
+term str as animalName !> print(animalName "Survived!")
+```
+
+When making a rule chain, a replacing match (`->`) can only be used as the first scope in a chain. This restriction is in place because replacing introduces some ambiguity if the record is modified before the replacement occurs. The rule execution procedure follows three steps:
+
+1. First, the pattern is removed from the record.
+2. Then, the scope executes.
+3. Finally, the values are scope values are inserted back into the record.
+
+Let us assume to the contrary that we can use `->` in the middle of a chain:
+
+```py
+begin >> [ 1 2 3 ]
+
+2 !> empty()      # Empties the record
+  >> [ "a" "c" ]
+  -> "b"
+```
+
+When the pattern matches, the *pointer* (where the pattern would be inserted) is between the `1` and `3`. However, the record gets emptied, then we add a couple more values to the record. So where should be *replace* the `"b"` into? There are several ways it could be handled. The pointer could shift right when a value is added before it, keeping relative positioning. But what happens when the array is emptied? When we add a value to the empty array, should the pointer shift over or should it remain at the front? Instead, the simple solution is to not allow the usage since it is not intuitive and prone to nightmarish debugging unless the case is extremely well documented and known.
+
+Some functions interact with the record, so rule chaining can be used to split up dependent execution. For example, `empty()` removes all values from the record. This program may have unexpected behaviour. But it makes sense since the values within a value scope are inserted into the record after the entire scope is executed.
+```py
+begin >> [ 1 2 3 Empty ]
+Empty >> [ 3 2 1 !empty() ]
+
+# Record: [ 3 2 1 ]
+```
+
+To remove all values within the record, we can use chaining:
+
+```py
+begin >> [ 1 2 3 Empty ]
+Empty >> [ 3 2 1 ] !> empty()
+```
+
+Although this example is rather useless, it illustrates the some of the dangers of functions that interact with the stack.
+
+### In-Scope Not (`!`)
+
+The in-scope not operator allows functions to evaluate without inserting their result in the record. For example, `print()` returns `nil`; so if we do not want to add `nil` to the record, we can prepend the function with `!`.
+
+```py
+begin >> [ 1 print("Hello, World!") 2 ]
+# Record: [ 1 nil 2 ]
+```
+
+```py
+begin >> [ 1 !print("Hello, World!") 2 ]
+# Record: [ 1 2 ]
+```
+### Scope Modifiers
+
+Scope modifiers are used to isolate the record and enter a new child record that cannot modify the parent. There are two different modifiers:
+
+- `new`: opens a new empty record to start matching on
+- `clone`: copies all values within the record into a new record to start matching on
+
+These modifiers work on any kind of rule operator, but the scope must be a rule scope instead of a value scope. Once this child rule scope is exited, the record results will be inserted into the parent according to the rule operator used. For example, `>> new` will push the child record's results to the back of the parent record.
+
+We can make a program the sums the numbers in the record, but keeps them there for later operations by using an indicator term:
+
+```py
+begin >> [ 0 Sum 1 4 3 2 5 3 4 ]
+num as cumulativeSum Sum num as x -> [ x add(cumulativeSum x) Sum]
+Sum !> nil
+
+end => [
+  any as x !> print(x)
+]
+
+# RESULT:
+# 1
+# 4
+# 3
+# 2
+# 5
+# 3
+# 4
+# 22   (this is the sum)
+```
+
+However, this is awfully slow due to the RuleLang matching algorithm. As the `Sum` term keeps shifting over, it will take longer and longer to reach the next match, resulting in `O(n²)` time. This can be simplified and made more efficiently in `O(n)` by cloning the record to calculate the sum. Without the shifting, all the pattern matching for calculating the sum will occur at the front of the record, removing the need to traverse *across* the record while matching.
+
+```py
+begin >> [ 1 4 3 2 5 3 4 ]
+      # Clone the record and reduce it to its sum
+      >> clone [
+        num as x num as y -> add(x y)
+      ]
+
+end => [
+  any as x !> print(x)
+]
+
+# RESULT:
+# 1
+# 4
+# 3
+# 2
+# 5
+# 3
+# 4
+# 22   (this is the sum)
+```
+
+See how the back-pushing match can be attached to a rule scope now? This works because the **child** scope's result (the sum of the record) will be the values inserted back into the parent. This example also demonstrates how isolating the record is a powerful tool, allowing subprocesses (the summation) to not interfere with the main record.
+
+## Variables
+
+Variables provide a way to bind a matched value to use later in conditions or value scopes. Variables are declared directly following a **pattern value** and assigned to a variable name that follows the criteria:
 - Starts with a lowercase alphabetical character
 - Contains only alphanumeric and underscore (`_`) characters
-Functions take in several parameters and return a result. For example, the `print` function takes a parameter, displays it in the console, and returns `nil`.
+
+This way, there is a distinction between terms (uppercase start) and variables (lowercase start).
+
+You are probably already familiar with defining variables using the `as` keyword.
+
+```py
+begin >> [ "Hello, World!" ]
+str as myStr !> print(myStr)
+
+# RESULT:
+# Hello, World!
+```
+
+Multiple variables can be declared in the same rule.
+```py
+# Let's sort the record!
+begin >> [ 1 5 6 4 3 5 ]
+num as x num as y
+  if x > y -> [ y x ]
+
+# Record Result [ 1 3 4 5 5 6 ]
+```
+You can define multiple variables at the same time by wrapping variables names in parenthesis. This means we expect the previous two pattern values to map to the variables. The last program is equivalent to this: 
+```py
+# Let's sort the record!
+begin >> [ 1 5 6 4 3 5 ]
+num num as (x y)
+  if x > y -> [ y x ]
+
+# Record Result [ 1 3 4 5 5 6 ]
+```
+A variable cannot be defined in the middle of an **or** pattern, and an **or** cannot be used on the same level as a variable declaration.
+```py
+num as x | str >> x      # Error! If the `str` branch matches, what would the `x` variable be?
+str | (num as x) >> x    # Error! If the `str` branch matches, what would the `x` variable be?
+(str | num) as x >> x    # Fine
+```
+
+Variables can also map to a pattern group. 
+```py
+(str num | num str) as (x y)
+
+((str num | num str) num) as (x y z)
+```
+
+Variables are available in children scope (but never as pattern values!). They can also be *shadowed*. A variable in the parent scope with a same name as a variable defined in the child will be *hidden* by the child.
+
+```py
+begin >> [1 2]
+
+num as x num as y => [
+   begin >> ["One" "Two"]
+         !> print("x =" x "\ny =" y)
+   str as x str as z => [
+        begin !> print("Inner Scope:\nx =" x "\ny =" y "\nz =" z)
+   ] # Exit inner scope, so x=3 and z=4 are no longer available
+   end !> print("Back to the Outer Scope:\nx =" x "\ny =" y)
+]
+
+# RESULT:
+# x = 1 
+# y = 2
+# Inner Scope:
+# x = One 
+# y = 2 
+# z = Two
+# Back to the Outer Scope:
+# x = 1 
+# y = 2
+```
+
+### Global Variables
+Global variables can be defined at the top of a file (below imports). These variables are available in any condition or scope. They follow the same naming conventions as normal variables.
+
+- It must start with a lowercase alphabetical character
+- It must contain only alphanumeric and underscore (`_`) characters
+
+Global variables are defined using the `def` keyword and assignment operator `:=` (which contains a colon to differentiate it from the conditional equals operator `=`).
+
+```py
+def pi := 3.14
+def radius := 3
+
+begin >> [ radius radius pi ]
+num as x num as y -> mult(x y)
+num as area !> print("The area of the circle is around" area)
+
+# RESULT: 28.26
+```
+
+Global variables can often simplify getting input at the start of the program. To demonstrate, we will make a palindrome checker. A **palindrome** is a word that reads the same forwards as backwards, like "racecar". 
+
+```py
+import string # Allows us to use some string functions
+
+# Get the word input
+begin 
+    >> [ CheckPalindrome input("Enter a word: ") ]
+
+# Now we will reverse the string
+CheckPalindrome str as word
+    # Split the word by each character, pushing each character to the record
+    !> str_split(str_lowercase(word) "")
+    # Reverse the record, which contains the characters of the word
+    !> reverse()
+    # Combine these reversed characters back together into the reversed word
+    => [
+        str str as (part1 part2) -> join(part1 part2)
+    ]
+    # Push the original word to the record, so the reversed word and the original word are both on the record
+    >> word
+
+# Check if it is a palindrome, where the word is equal to the reversed word
+str str as (reversed word) 
+    if reversed = str_lowercase(word) 
+        !> printf(word "is a palindrome!")
+    else 
+        !> printf(word "is not a palindrome!")
+```
+
+Using a global variable to get input, we can simplify the program.
+
+```py
+import string
+
+def word := input("Enter a word: ")
+
+begin 
+    !> str_split(str_lowercase(word) "")
+    !> reverse()
+    => [
+        str str as (part1 part2) -> join(part1 part2)
+    ]
+    
+str as reversed 
+    if reversed = str_lowercase(word) 
+        !> printf("% is a palindrome!" word)
+    else 
+        !> printf("% is not a palindrome!" word)
+```
+
+## Functions
+
+Functions give RuleLang more interactivity and computational power. Functions follow some naming conventions:
+- They start with a lowercase alphabetical character
+- They contain only alphanumeric and underscore (`_`) characters
+
+Functions take in some amount of parameters, does some computation, and return a result. For example, the `print` function takes one or more parameters, displays them in the console, and returns `nil`.
 ```py
 # Display all values in the record
 begin >> [ 1 2 3 4 ]
 any as x !> print(x)
 ```
-Functions can have multiple parameters, like the `add` function, which returns the sum of two numbers. These parameters are separated by whitespace. 
+Functions parameters are separated by whitespace. 
 ```py
 # Sum all the numbers in the record
 begin >> [ 1 2 3 4 ]
 num num as (x y) -> add(x y)
 ```
-Some functions are **lazy**, meaning the parameters are not evaluated unless necessary. This allows functions to do some interesting logic, like the `when` function that has three parameters, a condition, a *has value* parameter 'scope', and a *has no value* parameter 'scope'. If the condition *has value*, the *has value* parameter will be evaluated, otherwise, the *has no value* parameter will be evaluated. Because the function is lazy, only one of the 'scopes' is ever evaluated when the function evaluates. This function can be read like: **when**(**condition** has value, evaluate **parameter2**, otherwise evaluate **parameter3**).
+Some functions take a variable number of parameters. These are called **variadic** functions. For example, the `join()` function takes two or more strings, combines them together, and returns the joined string. 
+
 ```py
-# Print all values in the record that have value
-begin >> [ 1 0 3 nil false true ]
-any as x !> when(x print(x) print("No value"))
-# Console: 1 "No value" 3 "No value" "No value" true
+# These are both valid calls for `join()` and result in "Hello, World!"
+join("Hello, " "World!")
+join("H" "e" "l" "l" "o" "," " " "W" "o" "r" "l" "d" "!")
 ```
-#### Safe and Unsafe
-Some functions are designated **unsafe** meaning they cannot be used within rule conditions or replacing match scopes because they manipulate the record or mess up the pattern matching in some way. For example, the `push` function adds a value to the end of the record. If it were used in a condition, it could easily result in an infinite loop
+
+For a full reference of functions, visit the [Function Reference](extended_docs/function_reference.md).
+
+### Laziness
+Some functions are **lazy**, meaning the parameters are not evaluated unless necessary. This allows functions to do some dynamic logic, like the `when()` function that has three parameters, a condition and two 'branches'. If the condition is *truthy*, the second parameter will be evaluated, otherwise, the third parameter will be evaluated. Because the function is lazy, only one of the 'branch' parameters is ever evaluated. This function can be read like: **when**(**condition** has value, evaluate **parameter2**, otherwise evaluate **parameter3**). It will then return the result of the executed parameter.
+
+```py
+# Print all values in the record that are truthy
+begin >> [ 1 2 3 4 5 ]
+any as x !> when(
+              greater(x 3) 
+              print(x "is greater than 3") 
+              print(x "is not greater than 3")
+            )
+# RESULT:
+# 1 is not greater than 3
+# 2 is not greater than 3
+# 3 is not greater than 3
+# 4 is greater than 3
+# 5 is greater than 3
+```
+
+### Unsafe Functions
+Some functions are designated **unsafe** meaning they cannot be used within rule conditions or replacing match scopes because they manipulate the record in some way. For example, the `push` function adds a value to the end of the record. If it were used in a condition, it could easily result in an infinite loop.
+
 ```py
 begin >> [ 1 ]
 num as x if push(x) | true !> [] 
 ```
 
-#### String Formatting
+We have [already discussed](#rule-chaining) how manipulating the record before a replacing match scope would cause issues. Manipulating the record within the replacing match scope would case a similar issue, which is why designating functions as unsafe is necessary.
+
+```py
+begin >> [ 1 2 3 ]
+2 -> [ !push(1) 1 ] # Error! Where exactly should we insert 1 into the record?
+```
+
+### Libraries
+RuleLand has several built-in libraries that extend functionality. Unlike standard library functions (like `print()`), you need to `import` these functions before you use them. You can import the full library and all functions within, or you can specify which functions to import. Regardless, imports must be at the top of the file.
+
+```py
+import string                             # Imports all functions from the string library
+import [ math_floor math_ceil ] from math # Imports only the math_floor and math_ceil functions from the math library
+
+begin >> [ math_floor(3.4) math_ceil(3.4) str_uppercase("Hello, World!") ]
+any as x !> print(x) 
+
+# RESULTS
+# 3
+# 4
+# "HELLO, WORLD!"
+```
+
+For a full reference of libraries, visit the [Function Reference](extended_docs/function_reference.md).
+
+### String Formatting
 Some functions have string formatting where additional arguments are formatted and written into placeholders within the string. Placeholders have the form `%[flags][width][.precision][!]` where all components in square brackets are optional.
 
 An explanation of each of the components:
@@ -741,6 +1454,7 @@ An explanation of each of the components:
 - `.precision`: A `.` followed by a whole number which indicates how many decimal digits to show in the formatted data
 - `!`: Optional delimiter 
 
+The `format()` function takes a format string and any number parameters, inserts the arguments into the placeholders, and returns the result.
 ```py
 def pi := 3.14159265359
 def mil := 1000000
@@ -758,202 +1472,15 @@ def widthStr := format("| %5 |\n| %^5 |\n| %>5 |" 1 2 3)
 # |     3 |
 ```
 
-A delimiter is used to include placeholder characters without including them in the placeholder:
+A delimiter is used to write placeholder characters without including them in the placeholder:
 ```py
+# See how this avoids including the `,` in the first placeholder and `!` in the next?
 def s := format("%!, %!!" "Hello" "World") # becomes "Hello, World!"
 ```
 
-To display a `%` character, you can use the code `%%`. The `format` function creates a formatted string:
+To display a `%` character, you can use the code `%%`.
 ```py
-def s := format("%!%%" 0.56) # becomes "0.56%"
+def s := format("%!%%" 56) # becomes "56%"
 ```
 
-## Libraries
-RuleLand has several built-in libraries that extend functionality. Unlike standard library functions, you need to `import` these functions before you use them. You can import the full library and all functions within, or you can specify which functions to import. Regardless, imports must be at the top of the file.
-```py
-import string                             # Imports all functions from the string library
-import [ math_floor math_ceil ] from math # Imports only the math_floor and math_ceil functions from the math library
-
-begin >> [ math_floor(3.4) math_ceil(3.4) str_uppercase("Hello, World!") ]
-any as x !> print(x) # 3, 4, "HELLO, WORLD!"
-```
-
-## Global Variables
-Global variables can be defined at the top of a file below imports.
-```py
-import [ math_pi ] from math
-
-def myVarName := 4
-def text := "Hello, World"
-def pi := math_pi()
-
-begin >> [ myVarName text pi ] # [ 4, "Hello, World", 3.141592653589793 ]
-```
-
-## Function Docs
-
-### Standard Library
-- `print(...messages:any) -> nil`: Displays all `messages` in the console joined by spaces.
-- `printf(template:str ...parameters:any) -> nil`: Displays the formatted string `template` with the `parameters` inserted in placeholders.
-- `input(prompt:str) -> str [UNSAFE]`: Displays `prompt` and waits until user enters input, returning that input.
-- `wait(delay:num) -> nil [UNSAFE]`: Delays `delay` milliseconds.
-- `type(value:any) -> str`: Returns the type of `value` as a string.
-- `less(left:num, right:num) -> bool`: Returns `true` if `left` is less than `right`, otherwise `false`.
-- `greater(left:num, right:num) -> bool`: Returns `true` if `left` is greater than `right`, otherwise `false`.
-- `less_or_equal(left:num, right:num) -> bool`: Returns `true` if `left` is less than or equal to `right`, otherwise `false`.
-- `greater_or_equal(left:num, right:num) -> bool`: Returns `true` if `left` is greater than or equal to `right`, otherwise `false`.
-- `equal(left:any, right:any) -> bool`: Returns `true` if `left` is the same value and type as `right`, otherwise `false`.
-- `not_equal(left:any, right:any) -> bool`: Returns `true` if `left` is not the same value or not the same type as `right`, otherwise `false`.
-- `add(left:num, right:num) -> num`: Returns the sum of `left` and `right`.
-- `sub(left:num, right:num) -> num`: Returns the difference between `left` and `right`.
-- `mult(left:num, right:num) -> num`: Returns the product of `left` and `right`.
-- `div(left:num, right:num) -> num`: Returns the division of `left` by `right`.
-- `floor_div(left:num, right:num) -> num`: Returns the floor division of `left` by `right`.
-- `mod(left:num, right:num) -> num`: Returns the remainder of `left` divided by `right`.
-- `random(x:num, y:num) -> num`: Returns a random integer within the range `[x,y]` such that both `x` and `y` are both inclusive.
-- `when(condition:any, true_val:any, false_val:any) -> any [LAZY]`: Evaluate and returns `true_val` if `condition` *has value*, otherwise evaluate and returns `false_val`.
-- `or(left:any, right:any) -> any [LAZY]`: Evaluates `left`. If it is true, return `left`, otherwise evaluate and return `right`.
-- `and(left:any, right:any) -> any [LAZY]`: Evaluates `left`. If it is false, return `left`, otherwise evaluate and return `right`.
-- `not(value:any) -> bool`: Returns `true` if `value` is *has value*, otherwise `false`.
-- `empty() -> nil [UNSAFE]`: Clears the record.
-- `size() -> num`: Returns the size of the record.
-- `length(str:str) -> num`: Returns the length of `str`.
-- `format(template:str ...parameters:any) -> str`: Returns the formatted string `template` with the `parameters` inserted in placeholders.
-- `join(left:str, right:str ...strs:str) -> str`: Returns the concatenation of `left` and `right` and any additional string parameter.
-- `join_with(left:str, right:str, combiner:str) -> str`: Returns `left`, `combiner`, and `right` concatenated together.
-- `is_str(value:any) -> bool`: Returns `true` if `value` is a string, otherwise `false`.
-- `is_num(value:any) -> bool`: Returns `true` if `value` is a number, otherwise `false`.
-- `is_term(value:any) -> bool`: Returns `true` if `value` is a term, otherwise `false`.
-- `is_bool(value:any) -> bool`: Returns `true` if `value` is a boolean, otherwise `false`.
-- `is_nil(value:any) -> bool`: Returns `true` if `value` is nil, otherwise `false`.
-- `to_term(str:str) -> term`: Converts `str` to a term if possible, otherwise returns nil.
-- `to_str(value:any) -> str`: Converts `value` to a string.
-- `to_num(str:str) -> num`: Converts `str` to a number if possible, otherwise returns nil.
-- `get(index:num) -> any`: Returns the value at `index` in the record. Indexes start at `1` and the record is also indexed negatively with `-1` as the final index.
-- `push(...values:any) -> any [UNSAFE]`: Appends `values` to the end of the record and returns `nil`.
-- `push_begin(...values:any) -> any [UNSAFE]`: Prepends `values` to the beginning of the record and returns `nil`.
-- `pop() -> any [UNSAFE]`: Removes and returns the last value in the record. If the record is empty, returns `nil`.
-- `pop_begin() -> any [UNSAFE]`: Removes and returns the first value in the record. If the record is empty, returns `nil`.
-- `insert(value:any, index:num) -> any [UNSAFE]`: Inserts `value` at the given `index` in the record and returns it. If `index` is out of range, throws an error.
-- `reverse() -> nil [UNSAFE]`: Reverses the order of values in the record and returns `nil`.
-
-### Math
-```py
-import math
-```
-- `math_pi() -> num`: Returns PI (`3.141592653589793`).
-- `math_e() -> num`: Returns Euler's number (`2.718281828459045`).
-- `math_floor(value:num) -> num`: Returns the largest integer less than or equal to `value`.
-- `math_ceil(value:num) -> num`: Returns the smallest integer greater than or equal to `value`.
-- `math_round(value:num) -> num`: Returns `value` rounded to the nearest integer.
-- `math_sqrt(value:num) -> num | nil`: Returns the square root of `value`, or `nil` if the result is impossible.
-- `math_pow(base:num, exp:num) -> num | nil`: Returns `base` raised to the exponent `exp`, or `nil` if the result is impossible.
-- `math_log(value:num) -> num | nil`: Returns the natural logarithm of `value`, or `nil` if the result is undefined.
-- `math_log2(value:num) -> num | nil`: Returns the base-2 logarithm of `value`, or `nil` if the result is undefined.
-- `math_log10(value:num) -> num | nil`: Returns the base-10 logarithm of `value`, or `nil` if the result is undefined.
-- `math_abs(value:num) -> num`: Returns the absolute value of `value`.
-- `math_sin(radians:num) -> num`: Returns the sine of a radian angle `radians`.
-- `math_cos(radians:num) -> num`: Returns the cosine of a radian angle `radians`.
-- `math_tan(radians:num) -> num`: Returns the tangent of a radian angle `radians`.
-- `math_min(val1:num val2:num ...nums:num) -> num`: Returns the minimum value of all number parameters.
-- `math_max(val1:num val2:num ...nums:num) -> num`: Returns the maximum value of all number parameters.
-### String
-```py
-import string
-```
-- `str_lowercase(str:str) -> str`: Returns `str` converted to lowercase.
-- `str_uppercase(str:str) -> str`: Returns `str` converted to uppercase.
-- `str_trim(str:str) -> str`: Returns `str` with leading and trailing whitespace removed.
-- `str_split(str:str, delimiter:str) -> nil [UNSAFE]`: Splits `str` by `delimiter` and appends the resulting substrings as new values to the record. Returns `nil`.
-- `str_get_char(str:str index:num) -> str`: Gets the character at at `index` within `str` and returns it as a 1-character string.
-- `str_substr(str:str i:num j:num) -> str`: Returns the substring of `str`, all the characters from index `i` to `j` inclusive.
-- `str_starts_with(str:str start:str) -> bool`: Returns `true` if `str` starts with the string `start`, otherwise `false`.
-- `str_ends_with(str:str end:str) -> bool`: Returns `true` if `str` ends with the string `end`, otherwise `false`.
-- `str_contains(str:str substr:str) -> bool`: Returns `true` if `str` contains the substring `substr`, otherwise `false`.
-- `str_index_of(str:str substr:str) -> num`: Returns the index of the start of the first occurrence of `substr` within `str`, or `-1` if the string does not include `substr`.
-- `str_last_index_of(str:str substr:str) -> num`: Returns the index of the start of the last occurrence of `substr` within `str`, or `-1` if the string does not include `substr`.
-- `str_replace(str:str searchStr:str replaceStr:str) -> str`: Returns `str` with the first occurrence of `searchStr` replaced with `replaceStr`.
-- `str_char_code(char:str) -> num`: Returns the unicode number representation of the 1-character string `char`.
-- `str_char_code(charCode:num) -> str`: Returns the text representation of the unicode code `charCode` as a string.
-
-```py
-import file
-```
-- `file_read(path:str) -> str`: Returns the contents of the file at `path`.
-- `file_write(path:str content:str) -> nil`: Writes `content` to the file at `path`. If the file already exists, its contents are overwritten.
-- `file_append(path:str content:str) -> nil`: Appends `content` to the end of the file at `path`. If the file does not exists, it will make a new file first.
-- `file_prepend(path:str content:str) -> nil`: Prepends `content` to the start of the file at `path`. If the file does not exists, it will make a new file first.
-- `file_remove(path:str) -> nil`: Deletes the file at `path`.
-- `file_rename(fromPath:str toPath:str) -> nil`: Renames the file at `fromPath` to `toPath`.
-- `file_exists(path:str) -> bool`: Returns `true` if the file at `path` exists. Otherwise it returns `false`.
-
-## Error Codes
-### Lexing (Scanning) errors
-- `E100001`: Unexpected token
-- `E100002`: Unterminated string
-### Parsing Errors
-- `E200001`: Unexpected token
-- `E200002`: Expected \`[\` to start the rule scope
-- `E200003`: Expected \`]\` to end the rule scope
-- `E200004`: Expected \`]\` to end the value scope
-- `E200005`: Expected identifier for global variable name
-- `E200006`: Expected value or scope after match operator \`myMatchOperator\``
-- `E200007`: 
-   - Replacing match operator (\`->\`) is invalid for the \`begin\` pattern
-   - Replacing match operator (\`->\`) is invalid for the \`end\` pattern
-- `E200008`: 
-   - Expected match operator after \`begin\` pattern
-   - Expected match operator after \`end\` pattern
-- `E200009`: Expected \`)\` to end the function call
-- `E200010`: Expected value after \`!\` in the value scope
-- `E200011`: Expected expression after \`if\`
-- `E200012`: Expected rule operator after the pattern
-- `E200013`: Expected pattern value after \`!\` in the pattern, not a group
-- `E200014`: Expected pattern value in the pattern group
-- `E200015`: Expected \`)\` to end the pattern group
-- `E200016`: Expected pattern value after \`!\` in pattern
-- `E200017`: The \`|\` pattern operator cannot be combined with \`as\` within the same group
-- `E200018`: Expected pattern value(s) to the right of the \`|\` pattern operator
-- `E200019`: The left side of the \`|\` pattern operator must have the same number of pattern values as right side
-- `E200020`: Cannot use \`as\` in the middle of the \`|\` condition 
-- `E200021`: Expected variable name(s) in \`as\` group
-- `E200022`: Expected \`)\` to end \`as\` group
-- `E200023`: Expected variable name or group of variable names after \`as\`
-- `E200024`: Variable \`myVariableName\` is already declared in the pattern
-- `E200025`: Too many variables for the number of pattern values
-- `E200026`: Expected value after \`!\` operator
-- `E200027`: Expected expression after \`(\`
-- `E200028`: Expected \`)\` to end expression
-- `E200029`: Expected expression after \`myExpressionOperator\` expression operator
-- `E200030`: Expected library name or `[` in import statement
-- `E200031`: Expected `]` to close function group in import statement
-- `E200032`: Expected `from` after function group in import statement
-- `E200033`: Expected library name after `from` in import statement
-- `E200034`: Multiple imports to library \`libraryName\`
-- `E200035`: Library \`libraryName\` does not exist
-- `E200036`: Function \`importedFunctionName\` not found in \`myLibrary` library
-- `E200037`: Duplicate function \`myFunction\` import
-- `E200038`: Expected `:=` for global variable definition
-- `E200039`: Expected value for global variable definition
-- `E200040`: Duplicate global variable, \`myVar\` has already been defined
-### Runtime Errors
-- `E300001`: Left operand of \`myExpressionOperator\` operator must be a number
-- `E300002`: Right operand of \`myExpressionOperator\` operator must be a number
-- `E300003`: Function \`myCalledFunction\` does not exist
-- `E300004`: Function \`myCalledFunction\` is not a safe function and cannot be used in expressions or replacing value scopes (\`-> [ ... ]\`)
-- `E300005`: Invalid number of parameters, function \`myCalledFunction\` must have x parameters
-- `E300006`: Parameter x of \`myCalledFunction\` function must be a \`parameterType\` type
-- `E300007`: Variable \`myVariable\` is not defined
-### Library Errors
-- `E400001`: Parameter for \`myCalledFunction\` function must be an integer
-- `E400002`: \`x\` is out of range for \`myCalledFunction\` function, the record has y values
-- `E400003`: `Index \`index\` is out of range for string
-- `E400004`: Parameter for \`myCalledFunction\` function must be a 1-character string
-- `E400005`: Cannot read file \`myPath\`
-- `E400006`: Cannot write to file \`myPath\`
-- `E400007`: Cannot append to file \`myPath\`
-- `E400008`: Cannot prepend to file \`myPath\`
-- `E400009`: Cannot remove file \`myPath\`
-- `E4000010`: Cannot rename file \`fromPath\` to \`toPath\``
-- `E4000011`: Too few parameters for the placeholders in the format string
-- `E4000012`: Too many parameters for the placeholders in the format string
+## Conclusion

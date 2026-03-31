@@ -1,0 +1,72 @@
+# Error Codes
+## Lexing (Scanning) errors
+- `E100001`: Unexpected token
+- `E100002`: Unterminated string
+## Parsing Errors
+- `E200001`: Unexpected token
+- `E200002`: Expected \`[\` to start the rule scope
+- `E200003`: Expected \`]\` to end the rule scope
+- `E200004`: Expected \`]\` to end the value scope
+- `E200005`: Expected identifier for global variable name
+- `E200006`: Expected value or scope after match operator \`myMatchOperator\``
+- `E200007`: 
+   - Replacing match operator (\`->\`) is invalid for the \`begin\` pattern
+   - Replacing match operator (\`->\`) is invalid for the \`end\` pattern
+- `E200008`: 
+   - Expected match operator after \`begin\` pattern
+   - Expected match operator after \`end\` pattern
+- `E200009`: Expected \`)\` to end the function call
+- `E200010`: Expected value after \`!\` in the value scope
+- `E200011`: 
+   - Expected expression after \`if\`
+   - Expected expression after \`elif\`
+- `E200012`: Expected rule operator after the pattern
+- `E200013`: Expected pattern value after \`!\` in the pattern, not a group
+- `E200014`: Expected pattern value in the pattern group
+- `E200015`: Expected \`)\` to end the pattern group
+- `E200016`: Expected pattern value after \`!\` in pattern
+- `E200017`: The \`|\` pattern operator cannot be combined with \`as\` within the same group
+- `E200018`: Expected pattern value(s) to the right of the \`|\` pattern operator
+- `E200019`: The left side of the \`|\` pattern operator must have the same number of pattern values as right side
+- `E200020`: Cannot use \`as\` in the middle of the \`|\` condition 
+- `E200021`: Expected variable name(s) in \`as\` group
+- `E200022`: Expected \`)\` to end \`as\` group
+- `E200023`: Expected variable name or group of variable names after \`as\`
+- `E200024`: Variable \`myVariableName\` is already declared in the pattern
+- `E200025`: Too many variables for the number of pattern values
+- `E200026`: Expected value after \`!\` operator
+- `E200027`: Expected expression after \`(\`
+- `E200028`: Expected \`)\` to end expression
+- `E200029`: Expected expression after \`myExpressionOperator\` expression operator
+- `E200030`: Expected library name or `[` in import statement
+- `E200031`: Expected `]` to close function group in import statement
+- `E200032`: Expected `from` after function group in import statement
+- `E200033`: Expected library name after `from` in import statement
+- `E200034`: Multiple imports to library \`libraryName\`
+- `E200035`: Library \`libraryName\` does not exist
+- `E200036`: Function \`importedFunctionName\` not found in \`myLibrary` library
+- `E200037`: Duplicate function \`myFunction\` import
+- `E200038`: Expected `:=` for global variable definition
+- `E200039`: Expected value for global variable definition
+- `E200040`: Duplicate global variable, \`myVar\` has already been defined
+## Runtime Errors
+- `E300001`: Left operand of \`myExpressionOperator\` operator must be a number
+- `E300002`: Right operand of \`myExpressionOperator\` operator must be a number
+- `E300003`: Function \`myCalledFunction\` does not exist
+- `E300004`: Function \`myCalledFunction\` is not a safe function and cannot be used in expressions or replacing value scopes (\`-> [ ... ]\`)
+- `E300005`: Invalid number of parameters, function \`myCalledFunction\` must have x parameters
+- `E300006`: Parameter x of \`myCalledFunction\` function must be a \`parameterType\` type
+- `E300007`: Variable \`myVariable\` is not defined
+## Library Errors
+- `E400001`: Parameter for \`myCalledFunction\` function must be an integer
+- `E400002`: \`x\` is out of range for \`myCalledFunction\` function, the record has y values
+- `E400003`: `Index \`index\` is out of range for string
+- `E400004`: Parameter for \`myCalledFunction\` function must be a 1-character string
+- `E400005`: Cannot read file \`myPath\`
+- `E400006`: Cannot write to file \`myPath\`
+- `E400007`: Cannot append to file \`myPath\`
+- `E400008`: Cannot prepend to file \`myPath\`
+- `E400009`: Cannot remove file \`myPath\`
+- `E4000010`: Cannot rename file \`fromPath\` to \`toPath\``
+- `E4000011`: Too few parameters for the placeholders in the format string
+- `E4000012`: Too many parameters for the placeholders in the format string

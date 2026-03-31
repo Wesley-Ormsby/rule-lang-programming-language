@@ -1,0 +1,19 @@
+import string
+
+begin 
+    >> input("Enter a word: ")
+    >> clone [
+        begin << Split
+        Split str as word 
+            !> str_split(str_lowercase(word) "")
+            !> reverse()
+        end => [
+            str str as (part1 part2) -> join(part1 part2)
+        ]
+    ]
+    
+str str as (reversed word) 
+    if reversed = str_lowercase(word) 
+        !> printf("% is a palindrome!" word)
+    else 
+        !> printf("% is not a palindrome!" word)

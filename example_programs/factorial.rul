@@ -1,6 +1,6 @@
 begin >> [ Factorial 8 ]
 Factorial num as n if n = 0 -> 1
-Factorial num as n -> [n Factorial sub(n 1)]
+                   else     -> [n Factorial sub(n 1)]
 num num as (x y) -> mult(x y)
 end => [
     num as x !> print(x)
