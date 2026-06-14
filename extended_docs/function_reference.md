@@ -2,8 +2,9 @@
 
 ## Standard Library
 
-- `print(...messages:any) -> nil`: Displays all `messages` in the console joined by spaces.
+- `print(...messages:any) -> nil`: Displays all `messages` in the console joined by spaces and ending in a new line.
 - `printf(template:str ...parameters:any) -> nil`: Displays the formatted string `template` with the `parameters` inserted in placeholders.
+- `emit(...messages:any) -> nil`: Displays all `messages` in the console joined by spaces.
 - `input(prompt:str) -> str`: Displays `prompt` and waits until user enters input, returning that input.
 - `wait(delay:num) -> nil`: Delays `delay` milliseconds.
 - `type(value:any) -> str`: Returns the type of `value` as a string.
@@ -86,7 +87,7 @@ import string
 - `str_last_index_of(str:str substr:str) -> num`: Returns the index of the start of the last occurrence of `substr` within `str`, or `-1` if the string does not include `substr`.
 - `str_replace(str:str searchStr:str replaceStr:str) -> str`: Returns `str` with the first occurrence of `searchStr` replaced with `replaceStr`.
 - `str_char_code(char:str) -> num`: Returns the unicode number representation of the 1-character string `char`.
-- `str_char_code(charCode:num) -> str`: Returns the text representation of the unicode code `charCode` as a string.
+- `str_from_code(charCode:num) -> str`: Returns the text representation of the unicode code `charCode` as a string.
 
 ## File
 
