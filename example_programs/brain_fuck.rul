@@ -1,0 +1,183 @@
+# Example `Hello World!` program:
+# ++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.
+
+import string
+import [ math_min ] from math
+
+def program := input("Enter the program: ")
+def input := input("Enter the input: ")
+
+# First, parse the program, remove unnecessary tokens
+begin 
+    !> str_split(program "") 
+    << [ Join "" ]
+    => [
+        # Add instruction characters
+        Join str as instruction_list ("+" | "-" | "." | "," | "[" | "]" | ">" | "<") as instruction 
+            << [ Join join(instruction_list instruction) ]
+        # Skip other characters
+        Join str as instruction_list str
+            << [ Join instruction_list ]
+        # Add an end of file character for several reasons:
+        # (1) Substrings for the looping logic will not error out if `[` is the last character
+        # (2) A 1-instruction program does not look like an instruction (this would cause an infinite loop)
+        Join str as instruction_list >> join(instruction_list "E") 
+    ]
+
+    # Now add the meta-data to the start of the record
+    # It should look like:
+    #   [ instruction_list instruction_pointer input_pointer Pointer ...cells ]
+    #   - `instruction_list` is a string of the instructions 
+    #   - `instruction_pointer` is the index of the current instruction to run in the instructions string
+    #   - `input_pointer` is the index of the current character to insert from the input
+    #   - The `Pointer` term points to the active cells, it may be intermingled with the cells (the next one)
+    >> [ 0 0 Pointer 0 ]
+      
+
+# Now begin the loop
+str as instruction_list num as instruction_pointer num as input_pointer => [
+    # Empty the record if at the end of the instruction list, otherwise get the current instruction
+    begin 
+        << when(
+            greater_or_equal(instruction_pointer length(instruction_list)) 
+            empty() 
+            str_get_char(instruction_list instruction_pointer)
+        )
+        # We only want to do this instruction once, so add a `Once` term after the pointer which 
+        # will keep track of when the instruction is run
+        # Basically, each of the patterns will match with the `Once` term and remove the `Once` 
+        # term afterwards so they no longer match
+        => [Pointer !Once as x -> [ Pointer Once x ] ]
+
+    # On a `+` instruction, increment the cell at the pointer by 1
+    "+" => [ 
+            Pointer Once num as cell
+                if cell = 255 -> [ Pointer 0 ] # Cell values wrap around, 255 is the max and afterwards, it wraps to 0
+                else -> [ Pointer add(cell 1) ]
+        ]
+        # Add the meta-data back to the tape, advancing to the next instruction
+        << [ instruction_list add(instruction_pointer 1) input_pointer ]
+
+    # On a `-` instruction, decrement the cell at the pointer by 1
+    "-" => [ 
+          Pointer Once num as cell
+            if cell = 0 -> [ Pointer 255 ] # Cell values wrap around, 0 is the min and afterwards, it wraps to 255
+            else -> [ Pointer sub(cell 1) ]
+        ]
+        << [ instruction_list add(instruction_pointer 1) input_pointer ]
+
+    # On a `>` instruction, shift the pointer left one cell
+    ">" => [ 
+          Pointer Once num as cell num as cell2 -> [ cell Pointer cell2 ]
+          # If the cell is the last cell, add a new one
+          Pointer Once num as cell -> [ cell Pointer 0 ]
+        ]
+        << [ instruction_list add(instruction_pointer 1) input_pointer ]
+
+    # On a `<` instruction, shift the pointer right one cell
+    "<" => [ 
+          num as cell Pointer Once -> [ Pointer cell ]
+          # If the cell is the first cell, add a new one
+          Pointer Once -> [ Pointer 0 ]
+        ]
+        << [ instruction_list add(instruction_pointer 1) input_pointer ]
+
+    # On a `.` instruction, output the character at the at the pointer
+    "." => [ 
+          Pointer Once num as cell
+            -> [ Pointer cell ]
+            !> emit(str_from_code(cell))
+        ]
+        << [ instruction_list add(instruction_pointer 1) input_pointer ]
+
+    # On a `,` instruction, the cell at the pointer gets the next input character value
+    "," => [ 
+            Pointer Once num
+                # Check to see if there are input characters remaining
+                if less(input_pointer length(input))
+                    -> [ Pointer math_min(str_char_code(str_get_char(input input_pointer)) 255) ] # The max cell value is 255
+                else
+                    -> [ Pointer 0 ] # No input remains, so set the cell value to 0
+          ]
+        << [ instruction_list add(instruction_pointer 1) add(input_pointer 1) ]
+
+    # On a `[` instruction, if the cell at the pointer is zero, then instead of moving 
+    # the instruction pointer forward to the next instruction, jump it forward to the 
+    # instruction after the matching `]` instruction.
+    "[" => [ 
+          Pointer Once num as cell
+            if cell = 0 
+                -> [ Pointer cell ]
+                # Get all the instructions after the "[" split into a new record
+                << new [ 
+                    begin 
+                        !> str_split(
+                            str_substr(
+                                instruction_list 
+                                add(instruction_pointer 1) 
+                                sub(length(instruction_list) 1)) 
+                            "")
+                        << [ instruction_pointer 0 ]
+                         
+                    # Find the matching "]" and its instruction index
+                    num as instruction_pointer num as open_count "[" 
+                        -> [ add(instruction_pointer 1) add(open_count 1) ]
+                    num as instruction_pointer num as open_count "]"
+                        if open_count = 0 !> empty() >> [ SetInstructionPointer add(instruction_pointer 2) ]
+                        else -> [ add(instruction_pointer 1) sub(open_count 1) ]
+                    num as instruction_pointer num as open_count str 
+                        -> [ add(instruction_pointer 1) open_count ]
+                    num as instruction_pointer num 
+                        -> [ SetInstructionPointer add(instruction_pointer 1) ]
+                ]
+            else -> [ Pointer cell ]
+                 << [ SetInstructionPointer add(instruction_pointer 1) ]
+        # Move to the new instruction pointer index
+        end => [
+            SetInstructionPointer num as new_instruction_pointer 
+                << [ instruction_list new_instruction_pointer input_pointer ]
+        ]
+    ]
+
+    # On a `]` instruction, if the cell at the pointer is nonzero, then instead 
+    # of moving the instruction pointer forward to the next instruction, jump it back to 
+    # the instruction after the matching `[` instruction.
+    "]" => [ 
+        Pointer Once num as cell
+            if cell != 0 
+                -> [ Pointer cell ]
+                << new [ 
+                    # Add the "S" to the start of the instruction list so `str_substr` will not error when `]` is the first character in the `instruction_list`
+                    begin 
+                        !> str_split(
+                            str_substr(
+                                join("S" instruction_list) 
+                                0 
+                                instruction_pointer) 
+                            "")
+                        !> reverse()
+                        << [ instruction_pointer 0 ]
+                        
+                    num as instruction_pointer num as close_count "]" 
+                        -> [ sub(instruction_pointer 1) add(close_count 1) ]
+                    num as instruction_pointer num as close_count "["
+                        if close_count = 0 !> empty() >> [ SetInstructionPointer instruction_pointer ]
+                        else -> [ sub(instruction_pointer 1) sub(close_count 1) ]
+                    num as instruction_pointer num as close_count str 
+                        -> [ sub(instruction_pointer 1) close_count ]
+                    num as instruction_pointer num 
+                        -> [ SetInstructionPointer instruction_pointer ]
+                ]
+            else 
+                -> [ Pointer cell ]
+                << [ SetInstructionPointer add(instruction_pointer 1) ]
+
+        end => [
+            SetInstructionPointer num as new_instruction_pointer 
+                if new_instruction_pointer > 0
+                    << [ instruction_list new_instruction_pointer input_pointer ]
+        ]
+    ]
+]
+
+end !> emit("\n")
