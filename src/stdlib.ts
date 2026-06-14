@@ -21,6 +21,16 @@ export const StandardLibrary: Library = {
       return newRecordVal("NIL", "nil");
     },
   },
+  emit: {
+    params: ["ANY"],
+    variadic: "ANY",
+    safe: true,
+    lazy: false,
+    run: async (params: RecordVal[], runContext: RunContext) => {
+      process.stdout.write(params.map((x)=>x.value).join(" "));
+      return newRecordVal("NIL", "nil");
+    },
+  },
   printf: {
     params: ["STR"],
     variadic: "ANY",
@@ -564,8 +574,10 @@ export const StandardLibrary: Library = {
           `Parameter for \`random\` function must be an integer`,
           "400001",
         );
-      if (runContext.errorReporter.hasError())
-        return runContext.errorReporter.throwAllErrs();
+      if (runContext.errorReporter.hasError()) {
+        runContext.errorReporter.throwAllErrs();
+        return null;
+      }
       const min = Math.min(num1, num2);
       const max = Math.max(num1, num2);
       return newRecordVal(
