@@ -87,8 +87,10 @@ export const StrLibrary: Library = {
           `Parameter for \`str_substr\` function must be an integer`,
           "400001"
         );
-      if (runContext.errorReporter.hasError())
-        return runContext.errorReporter.throwAllErrs();
+      if (runContext.errorReporter.hasError()) {
+          runContext.errorReporter.throwAllErrs();
+          return null;
+      } 
 
       const str = params[0].value;
       const index1 = num1 < 0 ? str.length + num1 : num1;
@@ -105,8 +107,10 @@ export const StrLibrary: Library = {
           `Index \`${index2}\` is out of range for string`,
           "400003"
         );
-      if (runContext.errorReporter.hasError())
-        return runContext.errorReporter.throwAllErrs();
+      if (runContext.errorReporter.hasError()) {
+          runContext.errorReporter.throwAllErrs();
+          return null;
+      } 
 
       const minIndex = Math.min(index1, index2);
       const maxIndex = Math.max(index1, index2);

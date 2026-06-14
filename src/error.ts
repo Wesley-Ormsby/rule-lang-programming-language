@@ -8,8 +8,8 @@ export interface ErrorInfo {
 }
 
 export interface ErrorReporter {
-  throwAllErrs();
-  pushErr(token: Token, message: string, code:string);
+  throwAllErrs(): void;
+  pushErr(token: Token, message: string, code:string): null;
   throwErr(token: Token, message: string, code:string): null;
   hasError(): boolean;
 }
@@ -39,6 +39,7 @@ export class ConsoleErrorReporter implements ErrorReporter {
   // Pushes an error without yet throwing them
   public pushErr(token: Token, message: string, code: string) {
     this.errors.push({ token, message, code });
+    return null;
   }
 
   // Throws an error
@@ -56,7 +57,8 @@ export class ConsoleErrorReporter implements ErrorReporter {
 
     const line = this.source.split("\n")[lineNum - 1];
     let left = line.slice(0, errStart - 1).trimStart();
-    let errStr = token.lexeme;
+    let errStr = line.slice(errStart-1, token.charEnd);
+
     let right = line.trimStart().slice(left.length + errStr.length).trimEnd();
     const maxSize = 80;
     if (left.length + errStr.length > maxSize) {

@@ -56,6 +56,7 @@ export class Runtime {
     this.defs = defs;
     this.ast = ast;
     this.baseDirectory = baseDirectory;
+    this.record = new RecordTape();
   }
 
   public async init() {

@@ -40,6 +40,7 @@ export class Parser {
     this.errReporter = reporter;
     this.pos = 0;
     this.imports = {};
+    this.defs = {}
     let delayedErrors: ErrorInfo[] = []; // Used for import errors that don't need to be displayed until a real parsing error occurs (since the code checks for hasError(), which would mess up parsing)
     let thrownErrors = false;
     try {

@@ -46,7 +46,7 @@ export class Lexer {
   private errReporter: ErrorReporter;
 
   constructor(source: string, reporter: ErrorReporter) {
-    this.source = source;
+    this.source = source.trimEnd();
     this.charStart = 1;
     this.charEnd = 0;
     this.lineStart = 1;
@@ -99,7 +99,7 @@ export class Lexer {
   }
 
   // Add a token to the token list
-  private addToken(tokenType: TT) {
+  private addToken(tokenType: TT, overwrittenCharEnd: number | null = null) {
     if (this.errorToken) {
       this.errReporter.pushErr(
         this.updateErrorToken(),
@@ -111,7 +111,7 @@ export class Lexer {
     this.tokenList.push({
       type: tokenType,
       charStart: this.charStart,
-      charEnd: this.charEnd,
+      charEnd: overwrittenCharEnd || this.charEnd,
       lineStart: this.lineStart,
       lexeme: this.lexeme,
     });
@@ -284,6 +284,8 @@ export class Lexer {
           lineStart: this.lineStart,
           lexeme: '"',
         };
+        // If the string is multiline, we want to end the error token on the first line
+        let charEnd: null | number = null
         while (this.charsToScan() >= 1 && !this.peekEq('"')) {
           if (this.charsToScan() >= 2 && this.peek() === "\\") {
             if (this.peek(1) == "\\") {
@@ -302,11 +304,16 @@ export class Lexer {
               this.consume();
             }
           } else {
+            if(this.peekEq("\n")) {
+                this.lineEnd += 1;
+                if(!charEnd) charEnd = this.charEnd;
+                this.charEnd = -1;
+              }
             this.consume();
           }
         }
         if (this.charsToScan() === 0) {
-          this.errReporter.throwErr(
+          this.errReporter.pushErr(
             errorToken,
             "Unterminated string",
             "100002"
@@ -314,7 +321,7 @@ export class Lexer {
           return;
         }
         this.consume();
-        this.addToken("STR");
+        this.addToken("STR", charEnd || this.charEnd);
         break;
       // Comments
       case "#":

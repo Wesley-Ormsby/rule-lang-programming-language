@@ -17,11 +17,12 @@ export const FileLibrary: Library = {
         const data = await fs.promises.readFile(full, "utf8");
         return newRecordVal("STR", data);
       } catch {
-        return runContext.errorReporter.throwErr(
+        runContext.errorReporter.throwErr(
           runContext.lazyparams[0].token,
           `Cannot read file \`${path}\``,
           "400005"
         );
+        return null;
       }
     },
   },
